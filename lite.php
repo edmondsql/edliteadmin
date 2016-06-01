@@ -56,7 +56,7 @@ input[type=checkbox],input[type=radio]{position: relative;vertical-align: middle
 input[type=text],select {min-width:98px !important}
 optgroup option {padding-left:8px}
 </style>
-<script src="http://emon/jq/jquery.js" type="text/javascript"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript"></script>
 <script type="text/javascript">
 $(document).ready(function(){
 '.((empty($_SESSION['ok']) && empty($_SESSION['err'])) ? '':'$("body").fadeIn("slow").prepend("'.
