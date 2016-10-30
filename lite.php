@@ -85,13 +85,10 @@ cbox[i].checked = cb.checked;
 </script>
 </head><body><div class="l1">&nbsp;<b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b> <i>SQLite '.$v['versionString'].'</i></div>';
 function clean($el, $cod='') {
-if(get_magic_quotes_gpc()) {
-$el= stripslashes($el);
-}
 if($cod==1) {
-return trim(str_replace(array(">","<","\\","\r\n","\r"), array("&gt;","&lt;","\\\\","\n","\n"), $el));//between quota
+return trim(str_replace(array(">","<","\r\n","\r"), array("&gt;","&lt;","\n","\n"), $el));//between quota
 } else {
-return trim(str_replace(array(">","<","\\","'",'"',"\r\n","\r"), array("&gt;","&lt;","\\\\","&#039;","&quot;","\n","\n"), $el));
+return trim(str_replace(array(">","<","\\","'",'"',"\r\n","\r"), array("&gt;","&lt;","\\\\","&#039;","&quot;","\n","\n"), SQLite3::escapeString($el)));
 }
 }
 function post($idxk='', $op='', $clean='') {
@@ -124,7 +121,7 @@ return "<form action='".$path.$furl."' method='post'".($enc==1 ? " enctype='mult
 function menu($db, $tb='', $left='', $sp=array()) {
 global $path;
 $f=1;$nrf_op='';
-while($f<100) {
+while($f<50) {
 $nrf_op.= "<option value='$f'>$f</option>";
 ++$f;
 }
@@ -133,7 +130,7 @@ $str = "<div class='l2'><a href='{$path}'>List DBs</a> | <a href='{$path}31/$db'
 "<div class='l3'>DB: <b>$db</b>".($tb==""?"":" || Table: <b>$tb</b>").(count($sp) >1 ?" || ".$sp[0].": <b>".$sp[1]."</b>":"")."</div><div class='scroll'>";
 if($left==1) $str .= "<table><tr><td class='c1 left'><table><tr><td class='th'>Query</td></tr>
 <tr><td>".form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>DO</button></form></td></tr>
-<tr><td class='th'>Import SQL, CSV</td></tr>
+<tr><td class='th'>Import SQL, CSV, GZ</td></tr>
 <tr><td>".form("30/$db",1)."<input type='file' name='importfile' />
 <input type='hidden' name='send' value='ja' /><br/><button type='submit'>DO</button></form></td></tr>
 <tr><td class='th'>Create Table</td></tr><tr><td>".form("7/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>CREATE</button></form></td></tr>
@@ -614,7 +611,9 @@ case "21"://table browse
 		echo "<tr class='r c$bg'>";
 		if($q_vws != 'view') echo "<td><a href='{$path}23/$db/$tb/".$res->columnName(0)."/".$id."'>Edit</a></td><td><a href='{$path}24/$db/$tb/".$res->columnName(0)."/".$id."'>Delete</a></td>";
 		for($j=0;$j<$cols;$j++) {
-			echo "<td class='pro'>".(stristr($rinf[$j],"blob") == true ? "[binary] ".number_format((strlen($row[$j])/1024),2)." KB":html_entity_decode($row[$j],ENT_QUOTES))."</td>";
+			echo "<td class='pro'>".(stristr($rinf[$j],"blob") == true ? "[binary] ".number_format((strlen($row[$j])/1024),2)." KB":(
+			strlen($row[$j]) > 200  ? substr(htmlentities($row[$j],ENT_QUOTES,"UTF-8"),0,200) : htmlentities($row[$j],ENT_QUOTES,"UTF-8")
+			))."</td>";
 		}
 		echo "</tr>";
 	}
@@ -778,8 +777,8 @@ break;
 case "30"://import
 	check(array(1),array('db'=>$sg[1]));
 	$db= $sg[1];
-	$out='';
-	$rgex = "~^\xEF\xBB\xBF|(\#|--).*|(?m)\(([^)]*\)*(\".*\")*('.*'))(*SKIP)(*F)|(?ims)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
+	$out="<div class='box'>";
+	$rgex = "~^\xEF\xBB\xBF|(\#|--).*|(?-m)\(([^)]*\)*(\".*\")*('.*'))(*SKIP)(*F)|(?s)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~im";
 	if(post('qtxt','!e')) {//in textarea
 		$e= preg_split($rgex, post('qtxt','',1), -1, PREG_SPLIT_NO_EMPTY);
 	} elseif(post('send','i') && post('send') == "ja") {//from file
@@ -814,6 +813,27 @@ case "30"://import
 				}
 				if(empty($e)) redir("5/$db",array('err'=>"Query failed"));
 				fclose($handle);
+			} elseif($fext == 'gz') {//gz file
+				if(($fgz = fopen($tmp, 'r')) !== FALSE) {
+					if(@fread($fgz, 3) != "\x1F\x8B\x08") {
+					redir("5/$db",array('err'=>"Not a valid GZ file"));
+					}
+					fclose($fgz);
+				}
+				if(@function_exists('gzopen')) {
+					$file = @gzopen($tmp, 'rb');
+					if (!$file) {
+					redir("5/$db",array('err'=>"Can't open GZ file"));
+					}
+					$e = '';
+					while (!gzeof($file)) {
+					$e .= gzgetc($file);
+					}
+					$e= preg_split($rgex, $e, -1, PREG_SPLIT_NO_EMPTY);
+					gzclose($file);
+				} else {
+					redir("5/$db",array('err'=>"Can't open GZ file"));
+				}
 			} else {
 				redir("5/$db",array('err'=>"Disallowed extension"));
 			}
@@ -825,7 +845,7 @@ case "30"://import
 		set_error_handler(function() {});
 		$con->exec("BEGIN TRANSACTION");
 		foreach($e as $qry) {
-			if(trim($qry)!='') $out .= "<p class='box'>".($con->exec(trim($qry)) ? "<b>OK!</b> - $qry" : "<b>FAILED!</b> $qry")."</p>";
+			if(trim($qry)!='') $out .= "<p>".($con->exec(trim($qry)) ? "<b>OK!</b> - $qry" : "<b>FAILED!</b> $qry")."</p>";
 		}
 		$con->exec("COMMIT");
 	}
