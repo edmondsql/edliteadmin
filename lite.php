@@ -9,7 +9,7 @@ $pg_lr=8;
 $dir= getcwd()."/";
 $ext=".db3";
 $del=" onclick=\"return confirm('are you sure?')\"";
-$version="2.0";
+$version="2.1";
 $deny= array('sqlite_sequence');
 $pi= (isset($_SERVER['PATH_INFO']) ? $_SERVER['PATH_INFO'] : @getenv('PATH_INFO'));
 $sg= preg_split('!/!', $pi,-1,PREG_SPLIT_NO_EMPTY);
@@ -130,7 +130,7 @@ $str = "<div class='l2'><a href='{$path}'>List DBs</a> | <a href='{$path}31/$db'
 "<div class='l3'>DB: <b>$db</b>".($tb==""?"":" || Table: <b>$tb</b>").(count($sp) >1 ?" || ".$sp[0].": <b>".$sp[1]."</b>":"")."</div><div class='scroll'>";
 if($left==1) $str .= "<table><tr><td class='c1 left'><table><tr><td class='th'>Query</td></tr>
 <tr><td>".form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>DO</button></form></td></tr>
-<tr><td class='th'>Import SQL, CSV, GZ</td></tr>
+<tr><td class='th'>Import SQL, CSV, GZ, ZIP</td></tr>
 <tr><td>".form("30/$db",1)."<input type='file' name='importfile' />
 <input type='hidden' name='send' value='ja' /><br/><button type='submit'>DO</button></form></td></tr>
 <tr><td class='th'>Create Table</td></tr><tr><td>".form("7/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>CREATE</button></form></td></tr>
@@ -833,6 +833,25 @@ case "30"://import
 					gzclose($file);
 				} else {
 					redir("5/$db",array('err'=>"Can't open GZ file"));
+				}
+			} elseif($fext == 'zip') {//zip file
+				if(($fzip = fopen($tmp, 'r')) !== FALSE) {
+					if(@fread($fzip, 4) != "\x50\x4B\x03\x04") {
+					redir("5/$db",array('err'=>"Not a valid ZIP file"));
+					}
+					fclose($fzip);
+				}
+				$zip = zip_open($tmp);
+				if(is_resource($zip)) {
+					$buf = '';
+					while($zip_entry = zip_read($zip)) {
+					if(zip_entry_open($zip, $zip_entry, "r")) {
+					$buf .= zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
+					zip_entry_close($zip_entry);
+					}
+					}
+					$e= preg_split($rgex, $buf, -1, PREG_SPLIT_NO_EMPTY);
+					zip_close($zip);
 				}
 			} else {
 				redir("5/$db",array('err'=>"Disallowed extension"));
