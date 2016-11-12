@@ -1,7 +1,7 @@
 <?php
 error_reporting(E_ALL);
 if(version_compare(PHP_VERSION, '5.3.0', '<')) die('Require PHP 5.3 or higher');
-if(!extension_loaded('sqlite3') && !extension_loaded('pdo_sqlite')) die('Install php_sqlite3 or pdo_sqlite extension!');
+if(!extension_loaded('sqlite3') && !extension_loaded('pdo_sqlite')) die('Install sqlite3 or pdo_sqlite extension!');
 session_start();
 $bg='';
 $step=15;
@@ -13,7 +13,7 @@ $deny= array('sqlite_sequence');
 class DBT {
 	public static $contype= array('sqlite3','pdo_sqlite');
 	private static $instance = NULL;
-	private $_cnx, $_query, $_fetch = array(), $_num_col, $_col_name = array();
+	private $_cnx, $_query, $_fetch = array(), $_num_col;
 	public static function factory($db) {
 		if(!isset(self::$instance))
 		self::$instance = new DBT($db);
@@ -92,19 +92,6 @@ class DBT {
 		$this->_num_col = $this->_query->columnCount();
 		}
 		return $this->_num_col;
-	}
-	public function col_name() {
-		$i=0;
-		while($i < $this->_num_col) {
-			if($_SESSION['contype'] == self::$contype[0]) {
-				$this->_col_name[] = $this->_query->columnName($i);
-			} else {
-				$meta = $this->_query->getColumnMeta($i);
-				$this->_col_name[] = $meta['name'];
-			}
-			$i++;
-		}
-		return $this->_col_name;
 	}
 }
 
@@ -261,8 +248,7 @@ class ED {
 	}
 }
 $ed= new ED;
-$head= '<!DOCTYPE html>
-<html><head>
+$head= '<!DOCTYPE html><html><head>
 <title>EdLiteAdmin</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge" /><![endif]-->
 <style type="text/css">
@@ -743,8 +729,10 @@ case "21"://table browse
 	$offset = ($pg - 1) * $step;
 	$q_rex = $ed->con->query("SELECT * FROM $tb LIMIT $offset, $step");
 	$cols = $q_rex->num_col();
-	$cols_name = $q_rex->col_name();
 	$res = $q_rex->fetch(1);
+
+	$tbinfo = $ed->con->query("PRAGMA table_info($tb)");
+	$cols_name= $tbinfo->fetch(2);
 
 	echo $head;
 	$q_vws = $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
@@ -752,7 +740,7 @@ case "21"://table browse
 	echo "<table class='a'><tr>";
 	if($q_vws != 'view') echo "<th colspan=2><a href='{$ed->path}22/$db/$tb'>INSERT</a></th>";
 	foreach($cols_name as $c_name) {
-		echo "<th>".$c_name."</th>";
+	echo "<th>". $c_name['name']."</th>";
 	}
 	echo "</tr>";
 
@@ -766,7 +754,7 @@ case "21"://table browse
 		$bg=($bg==1)?2:1;
 		$id=base64_encode($row[0]);
 		echo "<tr class='r c$bg'>";
-		if($q_vws != 'view') echo "<td><a href='{$ed->path}23/$db/$tb/".$cols_name[0]."/".$id."'>Edit</a></td><td><a href='{$ed->path}24/$db/$tb/".$cols_name[0]."/".$id."'>Delete</a></td>";
+		if($q_vws != 'view') echo "<td><a href='{$ed->path}23/$db/$tb/".$cols_name[0]['name']."/".$id."'>Edit</a></td><td><a href='{$ed->path}24/$db/$tb/".$cols_name[0]['name']."/".$id."'>Delete</a></td>";
 		for($j=0;$j<$cols;$j++) {
 			echo "<td class='pro'>".(stristr($rinf[$j],"blob") == true ? "[binary] ".number_format((strlen($row[$j])/1024),2)." KB":(
 			strlen($row[$j]) > 200  ? substr(htmlentities($row[$j],ENT_QUOTES,"UTF-8"),0,200) : htmlentities($row[$j],ENT_QUOTES,"UTF-8")
@@ -1162,9 +1150,14 @@ case "32"://export
 		}
 	} elseif(in_array('csv',$ffmt)) {//csv format
 		foreach($tbs as $tb) {
-		$q_csv= $ed->con->query("SELECT * FROM ".$tb)->fetch(1);//columnName
-		$ncol= $q_csv->num_col();
-		for($i=0;$i < $ncol;++$i) $sql.='"'.$q_csv->col_name($i).'",';
+		$q_csvs= $ed->con->query("SELECT * FROM ".$tb);//columnName
+		$q_csv= $q_csvs->fetch(1);
+		$ncol= $q_csvs->num_col();
+		
+		$cols= $ed->con->query("PRAGMA table_info($tb)")->fetch(2);
+		for($i=0;$i < $ncol;++$i) {
+			$sql.='"'.$cols[$i]['name'].'",';
+		}		
 		$sql=substr($sql,0,-1)."\n";
 		foreach($q_csv as $r_rs) {
 			for($t=0;$t<$ncol;$t++) $sql.="\"".str_replace('"','""',$r_rs[$t])."\",";
@@ -1341,7 +1334,7 @@ case "50": //login
 	}
 	echo "</select></td></tr>
 	<tr><td>Password<br/><input type='password' name='password' /></td></tr>
-	<tr><td><button type='submit'>Login</button></table></form>";
+	<tr><td><button type='submit'>Login</button></table></form></div>";
 break;
 
 case "51": //logout
