@@ -5,7 +5,7 @@ if(!extension_loaded('sqlite3') && !extension_loaded('pdo_sqlite')) die('Install
 session_start();
 $bg='';
 $step=15;
-$version="3.0";
+$version="3.1";
 $del=" onclick=\"return confirm('are you sure?')\"";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
@@ -28,23 +28,26 @@ class DBT {
 	}
 	private function __clone() {}
 	public function exec($sql) {
-		$this->_cnx->exec($sql);
-		return $this;
+		return $this->_cnx->exec($sql);
+	}
+	public function query($sql, $single=false) {
+		try{
+			if($_SESSION['contype'] == self::$contype[0]) {
+				if($single == false) {
+				$this->_query = $this->_cnx->query($sql);
+				} else {
+				$this->_query = $this->_cnx->querySingle($sql);
+				}
+			} else {
+				$this->_query = $this->_cnx->query($sql);
+			}
+			return $this;
+		} catch(Exception $e) {
+			return false;
+		}
 	}
 	public function err() {
 		return $this->_cnx->errorInfo();//only PDO
-	}
-	public function query($sql, $single=false) {
-	if($_SESSION['contype'] == self::$contype[0]) {
-		if($single == false) {
-		$this->_query = $this->_cnx->query($sql);
-		} else {
-		$this->_query = $this->_cnx->querySingle($sql);
-		}
-	} else {
-		$this->_query = $this->_cnx->query($sql);
-	}
-	return $this;
 	}
 	public function fetch($mode=0) {
 		if($_SESSION['contype'] == self::$contype[0]) {
@@ -159,7 +162,7 @@ class ED {
 		"<div class='l3'>DB: <b>$db</b>".($tb==""?"":" || Table: <b>$tb</b>").(count($sp) >1 ?" || ".$sp[0].": <b>".$sp[1]."</b>":"")."</div><div class='scroll'>";
 		if($left==1) $str .= "<table><tr><td class='c1 left'><table><tr><td class='th'>Query</td></tr>
 		<tr><td>".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>DO</button></form></td></tr>
-		<tr><td class='th'>Import SQL, CSV, GZ, ZIP</td></tr>
+		<tr><td class='th'>Import sql, csv, gz, zip, ".substr($this->ext,1)."</td></tr>
 		<tr><td>".$this->form("30/$db",1)."<input type='file' name='importfile' />
 		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>DO</button></form></td></tr>
 		<tr><td class='th'>Create Table</td></tr><tr><td>".$this->form("7/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>CREATE</button></form></td></tr>
@@ -205,19 +208,23 @@ class ED {
 		}
 		if(in_array(2,$level)) {//check table
 		$tb= $this->sg[2];
-		$ist= $this->con->query("SELECT type FROM sqlite_master WHERE name='$tb'")->fetch(2);
-		if($ist[0]['type'] !='table' && $ist[0]['type'] !='view') $this->redir("5/".$db,array('err'=>"Table not exist"));
+		$ist= $this->con->query("SELECT 1 FROM sqlite_master WHERE name='$tb' AND (type='table' OR type='view')", true)->fetch();
+		if(!$ist) $this->redir("5/".$db,array('err'=>"Table not exist"));
 		}
 		if(in_array(3,$level)) {//check field
-			$q_fld = $this->con->query("SELECT ".$this->sg[3]." FROM ".$this->sg[2], true);
+			$q_fld = $this->con->query("SELECT ".$this->sg[3]." FROM ".$this->sg[2], true)->fetch();
 			if($q_fld===FALSE) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
+			if(isset($this->sg[5])) {
+			$q_fld2 = $this->con->query("SELECT ".$this->sg[5]." FROM ".$this->sg[2], true)->fetch();
+			if($q_fld2===FALSE) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
+			}
 		}
 		if(in_array(4,$level)) {//check pagination
 			if(!is_numeric($param['pg']) || $param['pg'] > $param['total'] || $param['pg'] < 1) $this->redir($param['redir'],array('err'=>"Invalid page number"));
 		}
 		if(in_array(5,$level)) {//check view, trigger
-			$q_sp = $this->con->query("SELECT type FROM sqlite_master WHERE name='".$this->sg[2]."'", true)->fetch();
-			if($q_sp != $this->sg[3]) $this->redir("5/".$db,array('err'=>"Not available view or trigger"));
+			$q_sp = $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$this->sg[2]."' AND type='".$this->sg[3]."'", true)->fetch();
+			if(!$q_sp) $this->redir("5/".$db,array('err'=>"Not available view or trigger"));
 		}
 	}
 	public function pg_number($pg, $totalpg) {
@@ -235,6 +242,64 @@ class ED {
 		$rgt= ($pg < $totalpg?"<a href='$link/".($pg+1)."'>Next</a> | <a href='$link/$totalpg'>Last</a>":"");
 		return $lft.$pgs.$rgt;
 		}
+	}
+	public function imp_sqlite($fname, $fbody) {
+		if($fbody!='') {
+		if(substr(file_get_contents($fbody), 0, 15) !="SQLite format 3" && substr($fbody, 0, 15) !="SQLite format 3") $this->redir('',array('err'=>"No SQLite file"));
+		$file= pathinfo($fname);
+		$new= $this->dir.$this->sanitize($file['filename']).$this->ext;
+		if(is_uploaded_file($fbody)) {
+			if(move_uploaded_file($fbody, $new)) {
+			$this->redir('',array('ok'=>"SQLite file uploaded"));
+			}
+		} else {
+			$sfile = fopen($new, "wb");
+			if(!$sfile) $this->redir('',array('err'=>"Unable to create sqlite file"));
+			fwrite($sfile, $fbody);
+			fclose($sfile);
+			$this->redir('',array('ok'=>"SQLite file uploaded"));
+		}
+		}
+		$this->redir('',array('err'=>"No upload"));
+	}
+	public function imp_csv($fname, $fbody) {
+		$exist= $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$fname."' AND type='table'", true)->fetch();
+		if(!$exist) $this->redir("5/".$this->sg[1],array('err'=>"Table not exist"));
+		$e = array();
+		if(is_file($fbody)) {
+			$handle = fopen("$fbody","rb");
+			$data = fgetcsv($handle, 0, ",");
+			if(empty($data)) $this->redir('5/'.$this->sg[1]);
+			$fd = '';
+			for($h=0;$h<count($data);$h++) {
+				$fd .= $this->clean($data[$h]).',';
+			}
+			$fdx = "(".substr($fd,0,-1).")";
+			while(($data = fgetcsv($handle, 0, ",")) !== FALSE) {
+				$num = count($data);
+				if($num < 1) $this->redir('5/'.$this->sg[1]);
+				$import="INSERT INTO ".$fname.$fdx." VALUES(";
+				for ($c=0; $c < $num; ++$c) {
+					$import.="'".$this->clean($data[$c])."',";
+				}
+				$e[] = substr($import,0,-1).");";
+			}
+			fclose($handle);
+		} else {
+			$data = array();
+			foreach(preg_split("/((\r?\n)|(\r\n?))/", $fbody) as $line){
+			$data[] = $line;
+			}
+			$i=1;
+			$co= count($data);
+			if($co < 1) $this->redir("5/".$this->sg[1],array('err'=>"No data"));
+			while($i < $co) {
+			if(!empty($data[$i])) $e[] = "INSERT INTO ".$fname."(".str_replace('"','',$data[0]).") VALUES(".$data[$i].");";
+			++$i;
+			}
+		}
+		if(empty($e)) $this->redir("5/".$this->sg[1],array('err'=>"Query failed"));
+		return $e;
 	}
 	public function ver() {
 		if($_SESSION['contype'] == DBT::$contype[0]) {
@@ -321,8 +386,8 @@ switch($ed->sg[0]) {
 default:
 case ""://show DBs
 	$ed->check();
-	echo $head."<table><tr><td class='c1'>Create Database".
-	$ed->form(2)."<input type='text' class='a1' name='dbc' /><br/>
+	echo $head."<table><tr><td class='c1 left'>Create Database".
+	$ed->form(2)."<input type='text' name='dbc' /><br/>
 	<button type='submit'>Create</button></form></td><td>
 	<table class='a'><tr><th>DATABASE</th><th>Tables</th><th>Actions</th></tr>";
 	$dbs = array();
@@ -756,9 +821,19 @@ case "21"://table browse
 		echo "<tr class='r c$bg'>";
 		if($q_vws != 'view') echo "<td><a href='{$ed->path}23/$db/$tb/".$cols_name[0]['name']."/".$id."'>Edit</a></td><td><a href='{$ed->path}24/$db/$tb/".$cols_name[0]['name']."/".$id."'>Delete</a></td>";
 		for($j=0;$j<$cols;$j++) {
-			echo "<td class='pro'>".(stristr($rinf[$j],"blob") == true ? "[binary] ".number_format((strlen($row[$j])/1024),2)." KB":(
-			strlen($row[$j]) > 200  ? substr(htmlentities($row[$j],ENT_QUOTES,"UTF-8"),0,200) : htmlentities($row[$j],ENT_QUOTES,"UTF-8")
-			))."</td>";
+			echo "<td class='pro'>";
+			if(stristr($rinf[$j],"blob") == true ) {
+			$le= strlen($row[$j]);
+			echo "[blob] ";
+			if($le > 4) {
+			echo "<a href='".$ed->path."25/$db/$tb/".$cols_name[0]['name']."/$id/".$cols_name[$j]['name']."'>".number_format(($le/1024),2)." KB</a>";
+			} else {
+			echo number_format(($le/1024),2)." KB";
+			}
+			} elseif(strlen($row[$j]) > 200) {
+			echo substr(htmlentities($row[$j],ENT_QUOTES,"UTF-8"),0,200);
+			} else echo htmlentities($row[$j],ENT_QUOTES,"UTF-8");
+			echo "</td>";
 		}
 		echo "</tr>";
 	}
@@ -856,7 +931,7 @@ case "23"://edit row
 			echo "<input type='radio' name='d".$nr."[]' value='$kk'".($arr[0][$nr]==$kk ? " checked":"")." /> $bb ";
 			}
 			} elseif($typ=="blob") {
-			echo "[binary] ".number_format((strlen($arr[0][$nr])/1024),2)." KB<br/><input type='file' name='d".$nr."' />";
+			echo "[blob] ".number_format((strlen($arr[0][$nr])/1024),2)." KB<br/><input type='file' name='d".$nr."' />";
 			} elseif($typ=="text") {
 			echo "<textarea name='d".$nr."'>".html_entity_decode($arr[0][$nr],ENT_QUOTES)."</textarea>";
 			} else {
@@ -876,6 +951,27 @@ case "24"://delete row
 	$exec_dr= $ed->con->exec("DELETE FROM ".$tb." WHERE ".$ed->sg[3]."='".base64_decode($ed->sg[4])."'");
 	if($exec_dr) $ed->redir("21/$db/$tb",array('ok'=>"Deleted row"));
 	else $ed->redir("21/$db/$tb",array('err'=>"Delete row failed"));
+break;
+
+case "25": //blob download
+	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>21));
+	$db= $ed->sg[1];
+	$tb= $ed->sg[2];
+	$nu= $ed->sg[3];
+	$id= base64_decode($ed->sg[4]);
+	$ph= $ed->sg[5];
+	$q_ph = $ed->con->query("SELECT {$ph} FROM {$tb} WHERE {$nu} LIKE '".$id."'", true)->fetch();
+	$r_ph= base64_decode($q_ph);
+	$len= strlen($r_ph);
+	if($len < 5 || strpos($r_ph, "\0")===false) $ed->redir("21/$db/$tb",array('err'=>"Not a blob"));
+	if($len >= 2 && $r_ph[0] == chr(0xff) && $r_ph[1] == chr(0xd8)) {$tp= 'image/jpeg';$xt='.jpg';}
+	elseif($len >= 3 && substr($r_ph, 0, 3) == 'GIF') {$tp= 'image/gif';$xt='.gif';}
+	elseif($len >= 4 && substr($r_ph, 0, 4) == "\x89PNG") {$tp= 'image/png';$xt='.png';}
+	else {$tp= 'application/octet-stream';$xt='.bin';}
+	header("Content-type: ".$tp);
+	header("Content-Length: ".$len);
+	header("Content-Disposition: attachment; filename=bin-".$id.$xt);
+	die($r_ph);
 break;
 
 case "26"://table empty
@@ -930,32 +1026,15 @@ case "30"://import
 		$ed->redir("5/$db",array('err'=>"No file to upload"));
 		} else {
 			$tmp = $_FILES['importfile']['tmp_name'];
-			$finame = explode('.',$_FILES['importfile']['name']);
-			$fext = strtolower(end($finame));
+			$file= pathinfo($_FILES['importfile']['name']);
+			$fext = strtolower($file['extension']);
 			if($fext == 'sql') {//sql file
 				$fi = $ed->clean(file_get_contents($tmp),1);
 				$e= preg_split($rgex, $fi, -1, PREG_SPLIT_NO_EMPTY);
 			} elseif($fext == 'csv') {//csv file
-				$handle = fopen("$tmp","r");
-				$data = fgetcsv($handle, 10000, ",");
-				if(empty($data)) $ed->redir('5/'.$db);
-				$fd = '';
-				for($h=0;$h<count($data);$h++) {
-					$fd .= $ed->clean($data[$h]).',';
-				}
-				$fdx = "(".substr($fd,0,-1).")";
-				$e = array();
-				while(($data = fgetcsv($handle, 1000000, ",")) !== FALSE) {
-					$num = count($data);
-					if($num < 1) $ed->redir('5/'.$db);
-					$import="INSERT INTO ".$finame[0].$fdx." VALUES(";
-					for ($c=0; $c < $num; ++$c) {
-						$import.="'".$ed->clean($data[$c])."',";
-					}
-					$e[] = substr($import,0,-1).");";
-				}
-				if(empty($e)) $ed->redir("5/$db",array('err'=>"Query failed"));
-				fclose($handle);
+				$e= $ed->imp_csv($file['filename'], $tmp);
+			} elseif($fext == 'sqlite' || $fext == substr($ed->ext,1)) {//sqlite file
+				$ed->imp_sqlite($file['filename'], $tmp);
 			} elseif($fext == 'gz') {//gz file
 				if(($fgz = fopen($tmp, 'r')) !== FALSE) {
 					if(@fread($fgz, 3) != "\x1F\x8B\x08") {
@@ -964,16 +1043,21 @@ case "30"://import
 					fclose($fgz);
 				}
 				if(@function_exists('gzopen')) {
-					$file = @gzopen($tmp, 'rb');
-					if (!$file) {
+					$gzfile = @gzopen($tmp, 'rb');
+					if (!$gzfile) {
 					$ed->redir("5/$db",array('err'=>"Can't open GZ file"));
 					}
 					$e = '';
-					while (!gzeof($file)) {
-					$e .= gzgetc($file);
+					while (!gzeof($gzfile)) {
+					$e .= gzgetc($gzfile);
 					}
-					$e= preg_split($rgex, $e, -1, PREG_SPLIT_NO_EMPTY);
-					gzclose($file);
+					gzclose($gzfile);
+					$entr= pathinfo($file['filename']);
+					$e_ext= $entr['extension'];
+					if($e_ext == 'sql') $e= preg_split($rgex, $e, -1, PREG_SPLIT_NO_EMPTY);
+					elseif($e_ext == 'csv') $e= $ed->imp_csv($entr['filename'], $e);
+					elseif($e_ext == 'sqlite' || $e_ext == substr($ed->ext,1)) $ed->imp_sqlite($file['filename'], $e);
+					else $ed->redir("5/$db",array('err'=>"Disallowed extension"));
 				} else {
 					$ed->redir("5/$db",array('err'=>"Can't open GZ file"));
 				}
@@ -988,13 +1072,20 @@ case "30"://import
 				if(is_resource($zip)) {
 					$buf = '';
 					while($zip_entry = zip_read($zip)) {
-					if(zip_entry_open($zip, $zip_entry, "r")) {
+					if($file['filename'] == zip_entry_name($zip_entry)) {
+					if(zip_entry_open($zip, $zip_entry, "rb")) {
 					$buf .= zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
 					zip_entry_close($zip_entry);
 					}
 					}
-					$e= preg_split($rgex, $buf, -1, PREG_SPLIT_NO_EMPTY);
+					}
 					zip_close($zip);
+					$entr= pathinfo($file['filename']);
+					$e_ext= $entr['extension'];
+					if($e_ext == 'sql') $e= preg_split($rgex, $buf, -1, PREG_SPLIT_NO_EMPTY);
+					elseif($e_ext == 'csv') $e= $ed->imp_csv($entr['filename'], $buf);
+					elseif($e_ext == 'sqlite' || $e_ext == substr($ed->ext,1)) $ed->imp_sqlite($file['filename'], $buf);
+					else $ed->redir("5/$db",array('err'=>"Disallowed extension"));
 				}
 			} else {
 				$ed->redir("5/$db",array('err'=>"Disallowed extension"));
@@ -1008,12 +1099,12 @@ case "30"://import
 		$ed->con->exec("BEGIN TRANSACTION");
 		foreach($e as $qry) {
 			$qry= trim($qry);
-			$exc= $ed->con->exec($qry);
-			if($qry!='') {
+			if(!empty($qry)) {
+				$exc= $ed->con->exec($qry);
 				if($_SESSION['contype'] == DBT::$contype[0]) {
 				$out .= "<p>".($exc ? "<b>OK!</b> $qry" : "<b>FAILED!</b> $qry")."</p>";
 				} else {
-				$e_exc= $exc->err();
+				$e_exc= $ed->con->err();
 				$out .= "<p>".($e_exc[0]==='00000' || $e_exc[0]==='01000' ? "<b>OK!</b> $qry" : "<b>FAILED!</b> $qry")."</p>";
 				}
 			}
@@ -1053,7 +1144,7 @@ case "31"://export form
 	}
 	echo "</td></tr></table>
 	<table class='a1 wi'><tr><th>File format</th></tr><tr><td>";
-	$ffo = array('sql'=>'SQL','csv'=>'CSV');
+	$ffo = array('sql'=>'SQL','csv'=>'CSV','sqlite'=>'SQLite');
 	foreach($ffo as $k => $ff) {
 	echo "<p><input type='radio' name='ffmt[]' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
 	}
@@ -1075,6 +1166,9 @@ case "32"://export
 	$db= $ed->sg[1];
 	$tbs= array();
 	$vws= array();
+	$sql='';
+	$ffmt= $ed->post('ffmt');
+	if(!in_array('sqlite',$ffmt)) {
 	if($ed->post('tables','e')) {//push selected tables
 		$ed->redir("31/".$db,array('err'=>"You didn't select any table"));
 	} else {
@@ -1093,8 +1187,7 @@ case "32"://export
 	} else {
 		$fopt=$ed->post('fopt');
 	}
-	$sql='';
-	$ffmt= $ed->post('ffmt');
+	}
 	if(in_array('sql',$ffmt)) {//data for sql format
 		$sql.="-- EdLiteAdmin SQL Dump\n-- version ".$version."\n\n";
 		foreach($tbs as $ttd) {
@@ -1149,12 +1242,12 @@ case "32"://export
 		}
 		}
 	} elseif(in_array('csv',$ffmt)) {//csv format
-		foreach($tbs as $tb) {
-		$q_csvs= $ed->con->query("SELECT * FROM ".$tb);//columnName
+		$tbs= array_merge($tbs, $vws);
+		if(empty($tbs[0])) $ed->redir("31/".$db,array('err'=>"Select a table/view"));
+		$q_csvs= $ed->con->query("SELECT * FROM ".$tbs[0]);
 		$q_csv= $q_csvs->fetch(1);
 		$ncol= $q_csvs->num_col();
-		
-		$cols= $ed->con->query("PRAGMA table_info($tb)")->fetch(2);
+		$cols= $ed->con->query("PRAGMA table_info(".$tbs[0].")")->fetch(2);
 		for($i=0;$i < $ncol;++$i) {
 			$sql.='"'.$cols[$i]['name'].'",';
 		}		
@@ -1164,14 +1257,21 @@ case "32"://export
 			$sql=substr($sql,0,-1)."\n";
 		}
 		$sql.="\n";
-		}
+	} elseif(in_array('sqlite',$ffmt)) {//sqlite format
+		$sql .= file_get_contents($ed->dir.$db.$ed->ext);
 	}
-	if(in_array("csv", $ffmt)) {//type, ext
-		$ffty= "text/csv";
-		$ffext= ".csv";
-	} elseif(in_array("sql", $ffmt)) {
+	if(in_array("sql", $ffmt)) {//type, ext
 		$ffty= "text/plain";
 		$ffext= ".sql";
+		$fname= $db.(count($tbs) == 1 ? ".".$tbs[0] : "").$ffext;
+	} elseif(in_array("csv", $ffmt)) {
+		$ffty= "text/csv";
+		$ffext= ".csv";
+		$fname= $tbs[0].$ffext;
+	} elseif(in_array("sqlite", $ffmt)) {
+		$ffty= "application/octet-stream";
+		$ffext= $ed->ext;
+		$fname= $db.$ffext;
 	}
 	$ftype= $ed->post('ftype');
 	if(in_array("gzip", $ftype)) {//pack
@@ -1181,12 +1281,10 @@ case "32"://export
 		$zty= "application/x-zip";
 		$zext= ".zip";
 	}
-	$fname= $db.(count($tbs) == 1 ? ".".$tbs[0] : "").$ffext;
 	if(in_array("gzip", $ftype)) {//gzip
 		ini_set('zlib.output_compression','Off');
 		$sql = gzencode($sql, 9);
 		header('Content-Encoding: gzip');
-		header("Content-Length: ".strlen($sql));
 	} elseif(in_array("zip", $ftype)) {//zip
 		$info = array();
 		$ctrl_dir = array();
@@ -1221,6 +1319,7 @@ case "32"://export
 	}
 	header("Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0");
 	header("Content-Type: ".(in_array("plain", $ftype) ? $ffty."; charset=utf-8" : $zty));
+	header("Content-Length: ".strlen($sql));
 	header("Content-Disposition: attachment; filename=".$fname.(in_array("plain", $ftype) ? "":$zext));
 	die($sql);
 break;
@@ -1231,11 +1330,14 @@ case "40"://view
 		$db= $ed->sg[1];
 		$r_uv= array(1=>'',2=>'');
 		if($ed->post('uv1','!e') && $ed->post('uv2','!e')) {
+			$tb= $ed->sanitize($ed->post('uv1'));
+			$exi= $ed->con->query("SELECT 1 FROM sqlite_master WHERE name='$tb'", true)->fetch();
+			if($exi) $ed->redir("5/".$db,array('err'=>"This name exist"));
 			$vstat= $ed->post('uv2','',1);
 			$stat= $ed->con->exec($vstat);
 			if(!$stat) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
-			$ed->con->exec("CREATE VIEW ".$ed->sanitize($ed->post('uv1'))." AS ".$vstat);
-			$ed->redir("5/".$db,array('ok'=>"Successfully updated"));
+			$ed->con->exec("CREATE VIEW ".$tb." AS ".$vstat);
+			$ed->redir("5/".$db,array('ok'=>"Successfully created"));
 		}
 		echo $head.$ed->menu($db);
 		echo $ed->form("40/$db");
@@ -1244,12 +1346,14 @@ case "40"://view
 		$ed->check(array(1,5),array('db'=>$ed->sg[1]));
 		$db= $ed->sg[1];$sp= $ed->sg[2];$ty= $ed->sg[3];
 		if($ed->post('uv1','!e') && $ed->post('uv2','!e')) {
-			$vstat= $ed->post('uv2','',1);
+			$tb= $ed->sanitize($ed->post('uv1'));
+			$exi= $ed->con->query("SELECT 1 FROM sqlite_master WHERE name='$tb'", true)->fetch();
+			if($exi) $ed->redir("5/".$db,array('err'=>"This name exist"));$vstat= $ed->post('uv2','',1);
 			$stat= $ed->con->exec($vstat);
 			if(!$stat) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
 			$ed->con->exec("DROP $ty ".$sp);
-			$ed->con->exec("CREATE VIEW ".$ed->sanitize($ed->post('uv1'))." AS ".$vstat);
-			$ed->redir("5/".$db,array('ok'=>"Successfully created"));
+			$ed->con->exec("CREATE VIEW ".$tb." AS ".$vstat);
+			$ed->redir("5/".$db,array('ok'=>"Successfully updated"));
 		}
 		echo $head.$ed->menu($db,'','',array($ty,$sp));
 		$q_uv = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='$ty' AND name='$sp'", true)->fetch();
