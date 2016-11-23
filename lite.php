@@ -46,8 +46,19 @@ class DBT {
 			return false;
 		}
 	}
+	public function last() {
+		if($_SESSION['contype'] == self::$contype[0]) {
+		return $this->_cnx->changes();
+		} else {
+		return $this->_query->rowCount();
+		}
+	}
 	public function err() {
-		return $this->_cnx->errorInfo();//only PDO
+		if($_SESSION['contype'] == self::$contype[0]) {
+		return $this->_cnx->lastErrorCode();
+		} else {
+		return $this->_cnx->errorInfo();
+		}
 	}
 	public function fetch($mode=0) {
 		if($_SESSION['contype'] == self::$contype[0]) {
@@ -99,17 +110,10 @@ class DBT {
 }
 
 class ED {
-	public $iv;
-	public $dir;
-	public $sg;
-	public $path;
-	public $ext=".db3";
-	public $pg_lr=8;
-	public $con;
+	public $con, $dir, $ext=".db3", $sg, $path, $pg_lr=8;
 	protected $passwd='';
 	public function __construct() {
 		$this->dir= getcwd()."/";
-		$this->iv= mcrypt_create_iv(mcrypt_get_iv_size(MCRYPT_BLOWFISH, MCRYPT_MODE_ECB));
 		$pi= (isset($_SERVER['PATH_INFO']) ? $_SERVER['PATH_INFO'] : @getenv('PATH_INFO'));
 		$this->sg= preg_split('!/!', $pi,-1,PREG_SPLIT_NO_EMPTY);
 		
@@ -195,7 +199,7 @@ class ED {
 	public function check($level=array(), $param=array()) {
 		if(!empty($_SESSION['token']) && !empty($_SESSION['contype'])) {
 		if(!in_array($_SESSION['contype'], DBT::$contype)) $this->redir("50");
-		if($_SESSION['token'] != base64_encode(mcrypt_encrypt(MCRYPT_RIJNDAEL_128, md5($_SERVER['HTTP_USER_AGENT']), $this->passwd, MCRYPT_MODE_ECB, $this->iv))) $this->redir("50",array('err'=>"Wrong password"));
+		if($_SESSION['token'] != base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$this->passwd))) $this->redir("50",array('err'=>"Wrong password"));
 		} else {
 		$this->redir("50");
 		}
@@ -224,7 +228,7 @@ class ED {
 		}
 		if(in_array(5,$level)) {//check view, trigger
 			$q_sp = $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$this->sg[2]."' AND type='".$this->sg[3]."'", true)->fetch();
-			if(!$q_sp) $this->redir("5/".$db,array('err'=>"Not available view or trigger"));
+			if(!$q_sp) $this->redir("5/".$db,array('err'=>"Not available object"));
 		}
 	}
 	public function pg_number($pg, $totalpg) {
@@ -438,7 +442,9 @@ case "4"://delete db
 	$ed->check(array(1));
 	$db = $ed->sg[1];
 	if(is_file($ed->dir.$db.$ed->ext)) {
-	@unlink($ed->dir.$db.$ed->ext);
+	$fl= $ed->dir.$db.$ed->ext;
+	chmod($fl, 0664);
+	@unlink($fl);
 	$ed->redir("",array('ok'=>"Successfully deleted"));
 	} else $ed->redir("",array('err'=>"Non-existent DB"));
 break;
@@ -459,7 +465,7 @@ case "5"://show tables
 	
 	echo $head.$ed->menu($db,'',1);
 	echo "<table class='a'><tr><th>TABLE/VIEW</th><th>RECORDS</th><th>ACTIONS</th></tr>";
-	$q_tabs = $ed->con->query("SELECT name,type FROM sqlite_master WHERE type='table' or type='view' ORDER BY type,name LIMIT $offset, $step")->fetch(1);
+	$q_tabs = $ed->con->query("SELECT name,type FROM sqlite_master WHERE type='table' OR type='view' ORDER BY type,name LIMIT $offset, $step")->fetch(1);
 	foreach($q_tabs as $r_tabs) {
 		if(!in_array($r_tabs[0],$deny)) {
 		$q_num = $ed->con->query("SELECT COUNT(*) FROM ".$r_tabs[0], true)->fetch();
@@ -490,16 +496,21 @@ break;
 case "7"://create table
 	$ed->check(array(1),array('db'=>$ed->sg[1]));
 	$db= $ed->sg[1];
-	echo $head.$ed->menu($db);
-	if($ed->post('ctab','!e') && $ed->post('nrf','!e') && $ed->post('nrf')>0 && is_numeric($ed->post('nrf')) ) {
+	if($ed->post('ctab','!e') && !is_numeric(substr($ed->post('ctab'),0,1)) && $ed->post('nrf','!e') && $ed->post('nrf')>0 && is_numeric($ed->post('nrf')) ) {
+		echo $head.$ed->menu($db);
 		if($ed->post('crtb','i')) {
-		$q1= "CREATE TABLE ".$ed->sanitize($ed->post('ctab'))."(";
-		for ($n=0;$n<$ed->post('nrf');$n++) {
-			$v1=$ed->post('fi'.$n); $v2=$ed->post('ty'.$n); $v3=$ed->post('vl'.$n); $v4=$ed->post('nl'.$n); $v5=$ed->post('df'.$n);
+		$q1='';
+		$n=0;
+		while($n<$ed->post('nrf')) {
+			$v1=$ed->sanitize($ed->post('fi'.$n));
+			if(!empty($v1) && !is_numeric(substr($v1,0,1))) {
+			$v2=$ed->post('ty'.$n); $v3=$ed->post('vl'.$n); $v4=$ed->post('nl'.$n); $v5=$ed->post('df'.$n);
 			$q1.=$v1." ".$v2.($v3!='' ? "(".$v3.")":"").($v4!=0 ? " NOT NULL":"").($v5!="" ? " ".$v5:"").",";
+			}
+			++$n;
 		}
-		$q2= substr($q1,0,-1).");";
-		echo "<p class='box'>".($ed->con->exec($q2) ? "<b>OK!</b> $q2<br/>" : "<b>FAILED!</b> $q2")."</p>";
+		$q2= "CREATE TABLE ".$ed->sanitize($ed->post('ctab'))."(".substr($q1,0,-1).");";
+		echo "<p class='box'>".(strlen($q1) > 5 && $ed->con->exec($q2) ? "<b>OK!</b> $q2<br/>" : "<b>FAILED!</b> $q2")."</p>";
 		} else {
 		echo $ed->form("7/$db")."<input type='hidden' name='ctab' value='".$ed->post('ctab')."'/>
 		<input type='hidden' name='nrf' value='".$ed->post('nrf')."'/>".$stru;
@@ -509,10 +520,10 @@ case "7"://create table
 		}
 		echo "<tr><td class='c1' colspan=5><button type='submit' name='crtb'>Create table</button></td></tr></table></form>";
 		}
+		echo "</div>";
 	} else {
-		echo "<p class='box'>Create table FAILED!</p>";
+		$ed->redir("5/$db",array('err'=>"Table name must not be empty"));
 	}
-	echo "</div>";
 break;
 
 case "9":
@@ -531,7 +542,8 @@ case "9":
 	}
 	if($ed->post('rtab','!e')) {//rename table
 		$new= $ed->sanitize($ed->post('rtab'));
-		$ed->con->exec("ALTER TABLE $tb RENAME TO ".$new);
+		$ren_tb= $ed->con->exec("ALTER TABLE $tb RENAME TO ".$new);
+		if(!$ren_tb) $ed->redir("10/$db/$tb",array('err'=>"Can't rename"));
 		$ed->con->exec("BEGIN TRANSACTION");
 		$ed->con->exec("PRAGMA writable_schema=1");
 		$q_rvtab= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//rename tb name in views
@@ -598,7 +610,7 @@ case "10"://table structure
 	$r = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($r as $rec) {
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td class='pro'>".$rec[1]."</td><td class='pro'>".$rec[2]."</td><td class='pro'>".($rec[3]==0 ? 'Yes':'No')."</td><td class='pro'>".$rec[4]."</td><td class='pro'>".($rec[5]==1 ? 'PK':'')."</td><td class='pro'><a href='{$ed->path}11/$db/$tb/".$rec[1]."'>change</a> | <a href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a> | <a href='{$ed->path}12/$db/$tb/'>add</a></td></tr>";
+		echo "<tr class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td class='pro'>".$rec[1]."</td><td class='pro'>".$rec[2]."</td><td class='pro'>".($rec[3]==0 ? 'Yes':'No')."</td><td class='pro'>".$rec[4]."</td><td class='pro'>".($rec[5]==1 ? 'PK':'')."</td><td class='pro'><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a> | <a href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a> | <a href='{$ed->path}11/$db/$tb/'>add</a></td></tr>";
 	}
 	echo "<tr><td class='div' colspan=7><button type='submit' name='primary'>Primary</button> <button type='submit' name='index'>Index</button> <button type='submit' name='unique'>Unique</button></td></tr></table></form>";
 	$q_idx = $ed->con->query("PRAGMA index_list($tb)")->fetch(1);
@@ -626,7 +638,31 @@ case "10"://table structure
 	</td></tr></table></div>";
 break;
 
-case "11"://change field structure
+case "11"://add new field
+	$ed->check(array(1,2),array('db'=>$ed->sg[1],'redir'=>10));
+	$db= $ed->sg[1];
+	$tb= $ed->sg[2];
+	if($ed->post('add','i')) {
+		$f1= $ed->sanitize($ed->post('f1'));
+		if(!empty($f1)) {
+		$e= $ed->con->exec("ALTER TABLE ".$tb." ADD COLUMN ".$f1." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')!=0 ? " NOT NULL":"").($ed->post('f5')!='' ? " ".$ed->post('f5'):""));
+		} else $ed->redir("10/$db/$tb",array('err'=>"Empty field name"));
+		$ed->con = null;
+		if($e) $ed->redir("10/$db/$tb",array('ok'=>"Successfully added"));
+		else $ed->redir("10/$db/$tb",array('err'=>"Can't add this field"));
+	} else {
+		echo $head.$ed->menu($db,$tb);
+		echo $ed->form("11/$db/$tb").$stru;
+		echo "<tr><td><input type='text' name='f1' /></td>
+		<td><select name='f2'>".$ed->fieldtype()."</select></td>
+		<td><input type='text' name='f3' /></td>
+		<td><select name='f4'><option value=0>Yes</option><option value=1>No</option></select></td>
+		<td><input type='text' name='f5' /></td></tr>
+		<tr><td class='c1' colspan=5><button type='submit' name='add'>Add field</button></td></tr></table></form></div>";
+	}
+break;
+
+case "12"://change field structure
 	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>10));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
@@ -637,6 +673,7 @@ case "11"://change field structure
 		foreach($f as $e) {
 		if($e[1]==$fn){
 			$na1 = $ed->sanitize($ed->post("cf1"));
+			if(empty($na1) || is_numeric(substr($na1,0,1))) $ed->redir("10/$db/$tb",array('err'=>"Not a valid field name"));
 			$qr.= $na1." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf5')!=0 ? " NOT NULL":"").($ed->post("cf5")!=''?" ".$ed->post("cf5"):"").",";
 			$pk.= ($e[5]==1 ? $na1.",":"");
 		} else {
@@ -672,9 +709,11 @@ case "11"://change field structure
 		}
 		//rename field in triggers
 		$q_rvtig= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
+		if($q_rvtig) {
 		foreach($q_rvtig as $r_rvtig) {
 			$replt= str_replace($fn,$na1,$r_rvtig[1]);
 			$ed->con->exec("UPDATE sqlite_master SET sql='".$replt."' WHERE name='".$r_rvtig[0]."'");
+		}
 		}
 		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->con->exec("COMMIT");
@@ -682,7 +721,7 @@ case "11"://change field structure
 		$ed->redir("10/$db/$tb",array('ok'=>"Successfully changed"));
 	} else {
 		echo $head.$ed->menu($db,$tb);
-		echo $ed->form("11/$db/$tb/$fn").$stru;
+		echo $ed->form("12/$db/$tb/$fn").$stru;
 		foreach($f as $d) {
 			if($d[1]==$fn){
 				$d_val= preg_split("/[()]+/", $d[2], -1, PREG_SPLIT_NO_EMPTY);
@@ -693,26 +732,6 @@ case "11"://change field structure
 			}
 		}
 		echo "<tr><td class='c1' colspan=5><button type='submit' name='change'>Change field</button></td></tr></table></form></div>";
-	}
-break;
-
-case "12"://add new field
-	$ed->check(array(1,2),array('db'=>$ed->sg[1],'redir'=>10));
-	$db= $ed->sg[1];
-	$tb= $ed->sg[2];
-	if($ed->post('add','i')) {
-		$ed->con->exec("ALTER TABLE ".$tb." ADD COLUMN ".$ed->sanitize($ed->post('f1'))." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')!=0 ? " NOT NULL":"").($ed->post('f5')!='' ? " ".$ed->post('f5'):""));
-		$ed->con = null;
-		$ed->redir("10/$db/$tb",array('ok'=>"Successfully added"));
-	} else {
-		echo $head.$ed->menu($db,$tb);
-		echo $ed->form("12/$db/$tb").$stru;
-		echo "<tr><td><input type='text' name='f1' /></td>
-		<td><select name='f2'>".$ed->fieldtype()."</select></td>
-		<td><input type='text' name='f3' /></td>
-		<td><select name='f4'><option value=0>Yes</option><option value=1>No</option></select></td>
-		<td><input type='text' name='f5' /></td></tr>
-		<tr><td class='c1' colspan=5><button type='submit' name='add'>Add field</button></td></tr></table></form></div>";
 	}
 break;
 
@@ -736,6 +755,7 @@ case "13"://drop column
 		$ed->con->exec("PRAGMA writable_schema=1");
 		//remove field from index
 		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
+		if($q_idx) {
 		foreach($q_idx as $r_idx) {
 		if($r_idx[1]) {
 		preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
@@ -746,6 +766,7 @@ case "13"://drop column
 		$ed->con->exec("UPDATE sqlite_master SET sql='".$r_prsql[1].$repl.")' WHERE type='index' AND name='".$r_idx[0]."' AND tbl_name='$tb'");
 		}
 		}
+		}
 		//drop field tb
 		$q_rtb= $ed->con->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='$tb'", true)->fetch();
 		if($q_rtb > 0) {
@@ -753,12 +774,14 @@ case "13"://drop column
 		}
 		//drop field view
 		$q_tbw= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(2);
+		if($q_tbw) {
 		foreach($q_tbw as $r_tbw) {
 			preg_match("/\b(".$tb.")\b/i",$r_tbw['sql'],$match1);
 			preg_match("/\b(".$fn.")\b/i",$r_tbw['sql'],$match2);
 			if($match1 && $match2) {
 				$ed->con->exec("DROP VIEW ".$r_tbw['name']);
 			}
+		}
 		}
 		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->con->exec("COMMIT");
@@ -823,7 +846,7 @@ case "21"://table browse
 		for($j=0;$j<$cols;$j++) {
 			echo "<td class='pro'>";
 			if(stristr($rinf[$j],"blob") == true ) {
-			$le= strlen($row[$j]);
+			$le= strlen(base64_decode($row[$j]));
 			echo "[blob] ";
 			if($le > 4) {
 			echo "<a href='".$ed->path."25/$db/$tb/".$cols_name[0]['name']."/$id/".$cols_name[$j]['name']."'>".number_format(($le/1024),2)." KB</a>";
@@ -919,9 +942,10 @@ case "23"://edit row
 		$ed->con->exec("UPDATE $tb SET ".$qq." WHERE ".$nu."='".$id."'");
 		$ed->redir("21/$db/$tb",array('ok'=>"Successfully updated"));
 	} else {
+		$arr= $ed->con->query("SELECT * FROM ".$tb." WHERE ".$nu."='".$id."'")->fetch(2);
+		if(!$arr) $ed->redir("21/$db/$tb",array('err'=>"Can't edit empty field"));
 		echo $head.$ed->menu($db,$tb,1);
 		echo $ed->form("23/$db/$tb/$nu/".$ed->sg[4], 1)."<table class='a'><caption>Edit Row</caption>";
-		$arr= $ed->con->query("SELECT * FROM ".$tb." WHERE ".$nu."='".$id."'")->fetch(2);
 		foreach($q_rd as $r_ed) {
 			$nr=$r_ed['name'];
 			$typ= strtolower($r_ed['type']);
@@ -948,8 +972,8 @@ case "24"://delete row
 	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>21));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
-	$exec_dr= $ed->con->exec("DELETE FROM ".$tb." WHERE ".$ed->sg[3]."='".base64_decode($ed->sg[4])."'");
-	if($exec_dr) $ed->redir("21/$db/$tb",array('ok'=>"Deleted row"));
+	$exec_dr= $ed->con->query("DELETE FROM ".$tb." WHERE ".$ed->sg[3]."='".base64_decode($ed->sg[4])."'");
+	if($exec_dr->last()) $ed->redir("21/$db/$tb",array('ok'=>"Deleted row"));
 	else $ed->redir("21/$db/$tb",array('err'=>"Delete row failed"));
 break;
 
@@ -980,8 +1004,7 @@ case "26"://table empty
 	$tb= $ed->sg[2];
 	$exec_te= $ed->con->exec("DELETE FROM ".$tb);
 	$ed->con = null;
-	if($exec_te) $ed->redir("5/$db",array('ok'=>"Table is empty"));
-	else $ed->redir("5/$db",array('err'=>"Can't empty the table"));
+	$ed->redir("5/$db",array('ok'=>"Table is empty"));
 break;
 
 case "27"://drop table, view
@@ -1100,13 +1123,20 @@ case "30"://import
 		foreach($e as $qry) {
 			$qry= trim($qry);
 			if(!empty($qry)) {
-				$exc= $ed->con->exec($qry);
-				if($_SESSION['contype'] == DBT::$contype[0]) {
-				$out .= "<p>".($exc ? "<b>OK!</b> $qry" : "<b>FAILED!</b> $qry")."</p>";
-				} else {
+				$exc= $ed->con->query($qry);
+				$op= array('insert','update','delete');
+				$p_qry= strtolower(substr($qry,0,6));
+				if(in_array($p_qry, $op)) $exc = $exc->last();
 				$e_exc= $ed->con->err();
-				$out .= "<p>".($e_exc[0]==='00000' || $e_exc[0]==='01000' ? "<b>OK!</b> $qry" : "<b>FAILED!</b> $qry")."</p>";
+				$out .= "<p>";
+				$ok="<b>OK!</b> ";
+				$fa="<b>FAILED!</b> ";
+				if($_SESSION['contype'] == DBT::$contype[0]) {
+				$out .= ($exc && !$e_exc ? $ok.$qry : $fa.$qry);
+				} else {
+				$out .= ($exc && ($e_exc[0]==='00000' || $e_exc[0]==='01000') ? $ok.$qry : $fa.$qry);
 				}
+				$out .= "</p>";
 			}
 		}
 		$ed->con->exec("COMMIT");
@@ -1169,7 +1199,7 @@ case "32"://export
 	$sql='';
 	$ffmt= $ed->post('ffmt');
 	if(!in_array('sqlite',$ffmt)) {
-	if($ed->post('tables','e')) {//push selected tables
+	if($ed->post('tables') =='') {//push selected tables
 		$ed->redir("31/".$db,array('err'=>"You didn't select any table"));
 	} else {
 		$tabs= $ed->post('tables');
@@ -1182,7 +1212,7 @@ case "32"://export
 			}
 		}
 	}
-	if($ed->post('fopt','e')) {//check export options
+	if($ed->post('fopt')=='') {//check export options
 		$ed->redir("31/".$db,array('err'=>"You didn't select any option"));
 	} else {
 		$fopt=$ed->post('fopt');
@@ -1190,56 +1220,58 @@ case "32"://export
 	}
 	if(in_array('sql',$ffmt)) {//data for sql format
 		$sql.="-- EdLiteAdmin SQL Dump\n-- version ".$version."\n\n";
-		foreach($tbs as $ttd) {
-		$val="";
-		if(in_array('structure',$fopt)) {//begin structure
-			if(in_array('drop',$fopt)) {//check option drop
-				$sql .= "DROP TABLE IF EXISTS $ttd;\n";
-			}
-			$sql .= $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$ttd'", true)->fetch().";";//structure
-			$q_tidx= $ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$ttd' AND type='index'");
-			$cidx= $q_tidx->num_col();
-			if($cidx > 0) {
-				foreach($q_tidx->fetch(1) as $r_ix) {
-				$val.= "\n".$r_ix[0].";";
+		if(!empty($fopt)) {
+			foreach($tbs as $ttd) {
+			$val="";
+			if(in_array('structure',$fopt)) {//begin structure
+				if(in_array('drop',$fopt)) {//check option drop
+					$sql .= "DROP TABLE IF EXISTS $ttd;\n";
 				}
-				$val.="\n";
-			}
-		}
-		if(in_array('data',$fopt)) {//check option data
-			$res2 = $ed->con->query("SELECT * FROM ".$ttd);
-			$nr= $res2->num_col();
-			foreach($res2->fetch(1) as $row) {
-				$ro= "\nINSERT INTO $ttd VALUES(";
-				for($i = 0; $i < $nr; $i++) {
-					if(is_numeric($row[$i])) $ro.= $row[$i].",";
-					else $ro.= "'".$row[$i]."',";
+				$sql .= $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$ttd'", true)->fetch().";";//structure
+				$q_tidx= $ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$ttd' AND type='index'");
+				$cidx= $q_tidx->num_col();
+				if($cidx > 0) {
+					foreach($q_tidx->fetch(1) as $r_ix) {
+					$val.= "\n".$r_ix[0].";";
+					}
+					$val.="\n";
 				}
-				$val.= substr($ro,0,-1).");";
 			}
-			$val.= "\n";
-		}
-		if(in_array('trigger',$fopt)) {//check option data
-			$q_ttgr= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE tbl_name='$ttd' AND type='trigger'")->fetch(2);
-			if(isset($q_ttgr[0]['name'])) {
-			if(in_array('drop',$fopt)) {//check option drop
-			$val .= "\nDROP TRIGGER IF EXISTS ".$q_ttgr[0]['name'].";";
+			if(in_array('data',$fopt)) {//check option data
+				$res2 = $ed->con->query("SELECT * FROM ".$ttd);
+				$nr= $res2->num_col();
+				foreach($res2->fetch(1) as $row) {
+					$ro= "\nINSERT INTO $ttd VALUES(";
+					for($i = 0; $i < $nr; $i++) {
+						if(is_numeric($row[$i])) $ro.= $row[$i].",";
+						else $ro.= "'".$row[$i]."',";
+					}
+					$val.= substr($ro,0,-1).");";
+				}
+				$val.= "\n";
 			}
-			$val .= "\n".$q_ttgr[0]['sql'].";\n";
+			if(in_array('trigger',$fopt)) {//check option data
+				$q_ttgr= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE tbl_name='$ttd' AND type='trigger'")->fetch(2);
+				if(isset($q_ttgr[0]['name'])) {
+				if(in_array('drop',$fopt)) {//check option drop
+				$val .= "\nDROP TRIGGER IF EXISTS ".$q_ttgr[0]['name'].";";
+				}
+				$val .= "\n".$q_ttgr[0]['sql'].";\n";
+				}
 			}
-		}
-		$sql.= $val."\n";
-		}
-		if($vws != '' && in_array('structure',$fopt)) {//export views
-		foreach($vws as $vw) {
-			$q_rw= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='view'", true)->fetch();
-			if($q_rw) {
-			if(in_array('drop',$fopt)) {//check option drop
-			$sql .= "DROP VIEW IF EXISTS $vw;\n";
+			$sql.= $val."\n";
 			}
-			$sql .= $q_rw.";\n\r";
+			if($vws != '' && in_array('structure',$fopt)) {//export views
+			foreach($vws as $vw) {
+				$q_rw= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='view'", true)->fetch();
+				if($q_rw) {
+				if(in_array('drop',$fopt)) {//check option drop
+				$sql .= "DROP VIEW IF EXISTS $vw;\n";
+				}
+				$sql .= $q_rw.";\n\r";
+				}
 			}
-		}
+			}
 		}
 	} elseif(in_array('csv',$ffmt)) {//csv format
 		$tbs= array_merge($tbs, $vws);
@@ -1345,10 +1377,13 @@ case "40"://view
 	} else {//edit
 		$ed->check(array(1,5),array('db'=>$ed->sg[1]));
 		$db= $ed->sg[1];$sp= $ed->sg[2];$ty= $ed->sg[3];
+		$q_uv = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='$ty' AND name='$sp'", true)->fetch();
+		preg_match('/CREATE\sVIEW\s(.*)\s+AS\s+(.*)$/i', $q_uv, $r_uv);
 		if($ed->post('uv1','!e') && $ed->post('uv2','!e')) {
 			$tb= $ed->sanitize($ed->post('uv1'));
 			$exi= $ed->con->query("SELECT 1 FROM sqlite_master WHERE name='$tb'", true)->fetch();
-			if($exi) $ed->redir("5/".$db,array('err'=>"This name exist"));$vstat= $ed->post('uv2','',1);
+			if($exi && $tb!=$r_uv[1]) $ed->redir("5/".$db,array('err'=>"This name exist"));
+			$vstat= $ed->post('uv2','',1);
 			$stat= $ed->con->exec($vstat);
 			if(!$stat) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
 			$ed->con->exec("DROP $ty ".$sp);
@@ -1356,8 +1391,6 @@ case "40"://view
 			$ed->redir("5/".$db,array('ok'=>"Successfully updated"));
 		}
 		echo $head.$ed->menu($db,'','',array($ty,$sp));
-		$q_uv = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='$ty' AND name='$sp'", true)->fetch();
-		preg_match('/CREATE\sVIEW\s(.*)\s+AS\s+(.*)$/i', $q_uv, $r_uv);
 		echo $ed->form("40/$db/$sp/$ty");
 		$b_lbl="Edit";
 	}
@@ -1425,7 +1458,7 @@ break;
 case "50": //login
 	if($ed->post('password','i') && $ed->post('contype','!e')) {
 		$_SESSION['contype']= $ed->post('contype');
-		$_SESSION['token']= base64_encode(mcrypt_encrypt(MCRYPT_RIJNDAEL_128, md5($_SERVER['HTTP_USER_AGENT']), $ed->post('password'), MCRYPT_MODE_ECB, $ed->iv));
+		$_SESSION['token']= base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$ed->post('password')));
 		$ed->ver();
 		$ed->redir();
 	}
