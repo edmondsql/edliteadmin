@@ -1368,8 +1368,9 @@ case "40"://view
 			$vstat= $ed->post('uv2','',1);
 			$stat= $ed->con->exec($vstat);
 			if(!$stat) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
-			$ed->con->exec("CREATE VIEW ".$tb." AS ".$vstat);
-			$ed->redir("5/".$db,array('ok'=>"Successfully created"));
+			$v_cre= $ed->con->exec("CREATE VIEW ".$tb." AS ".$vstat);
+			if($v_cre) $ed->redir("5/".$db,array('ok'=>"Successfully created"));
+			else $ed->redir("5/".$db,array('err'=>"Can't create view"));
 		}
 		echo $head.$ed->menu($db);
 		echo $ed->form("40/$db");
@@ -1381,6 +1382,7 @@ case "40"://view
 		preg_match('/CREATE\sVIEW\s(.*)\s+AS\s+(.*)$/i', $q_uv, $r_uv);
 		if($ed->post('uv1','!e') && $ed->post('uv2','!e')) {
 			$tb= $ed->sanitize($ed->post('uv1'));
+			if(is_numeric(substr($tb,0,1))) $ed->redir("5/".$db,array('err'=>"Not a valid name"));
 			$exi= $ed->con->query("SELECT 1 FROM sqlite_master WHERE name='$tb'", true)->fetch();
 			if($exi && $tb!=$r_uv[1]) $ed->redir("5/".$db,array('err'=>"This name exist"));
 			$vstat= $ed->post('uv2','',1);
@@ -1417,8 +1419,10 @@ case "41"://trigger
 		$ed->check(array(1,5),array('db'=>$ed->sg[1]));
 		$db= $ed->sg[1];$sp= $ed->sg[2];$ty= $ed->sg[3];
 		if($ed->post('utg1','!e') && $ed->post('utg5','!e')) {
+			$utg= $ed->sanitize($ed->post('utg1'));
+			if(is_numeric(substr($utg,0,1))) $ed->redir("5/".$db,array('err'=>"Not a valid name"));
 			$ed->con->exec("DROP {$ty} ".$sp);
-			$q_tgcrt= $ed->con->exec("CREATE TRIGGER ".$ed->sanitize($ed->post('utg1'))." ".$ed->post('utg2')." ".$ed->post('utg3')." ON ".$ed->post('utg4')." BEGIN ".$ed->post('utg5','',1)."; END");
+			$q_tgcrt= $ed->con->exec("CREATE TRIGGER ".$utg." ".$ed->post('utg2')." ".$ed->post('utg3')." ON ".$ed->post('utg4')." BEGIN ".$ed->post('utg5','',1)."; END");
 			if($q_tgcrt) $ed->redir("5/".$db,array('ok'=>"Successfully updated"));
 			else $ed->redir("5/".$db,array('err'=>"Update trigger failed"));
 		}
