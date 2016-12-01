@@ -505,7 +505,7 @@ case "7"://create table
 			$v1=$ed->sanitize($ed->post('fi'.$n));
 			if(!empty($v1) && !is_numeric(substr($v1,0,1))) {
 			$v2=$ed->post('ty'.$n); $v3=$ed->post('vl'.$n); $v4=$ed->post('nl'.$n); $v5=$ed->post('df'.$n);
-			$q1.=$v1." ".$v2.($v3!='' ? "(".$v3.")":"").($v4!=0 ? " NOT NULL":"").($v5!="" ? " ".$v5:"").",";
+			$q1.=$v1." ".$v2.($v3!='' ? "(".$v3.")":"").($v4!=0 ? " NOT NULL":"").($v5!="" ? " DEFAULT '".$v5."'":"").",";
 			}
 			++$n;
 		}
@@ -770,7 +770,7 @@ case "13"://drop column
 		//drop field tb
 		$q_rtb= $ed->con->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='$tb'", true)->fetch();
 		if($q_rtb > 0) {
-			$ed->con->exec("UPDATE sqlite_master SET sql='".$qrs."' WHERE name='$tb'");
+			$ed->con->exec("UPDATE sqlite_master SET sql='$qrs' WHERE name='$tb'");
 		}
 		//drop field view
 		$q_tbw= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(2);
@@ -985,9 +985,12 @@ case "25": //blob download
 	$id= base64_decode($ed->sg[4]);
 	$ph= $ed->sg[5];
 	$q_ph = $ed->con->query("SELECT {$ph} FROM {$tb} WHERE {$nu} LIKE '".$id."'", true)->fetch();
+	if(strpos($q_ph, "\0")===false) {
+	$r_ph= $q_ph;
+	} else {
 	$r_ph= base64_decode($q_ph);
+	}
 	$len= strlen($r_ph);
-	if($len < 5 || strpos($r_ph, "\0")===false) $ed->redir("21/$db/$tb",array('err'=>"Not a blob"));
 	if($len >= 2 && $r_ph[0] == chr(0xff) && $r_ph[1] == chr(0xd8)) {$tp= 'image/jpeg';$xt='.jpg';}
 	elseif($len >= 3 && substr($r_ph, 0, 3) == 'GIF') {$tp= 'image/gif';$xt='.gif';}
 	elseif($len >= 4 && substr($r_ph, 0, 4) == "\x89PNG") {$tp= 'image/png';$xt='.png';}
