@@ -505,7 +505,7 @@ case "7"://create table
 			$v1=$ed->sanitize($ed->post('fi'.$n));
 			if(!empty($v1) && !is_numeric(substr($v1,0,1))) {
 			$v2=$ed->post('ty'.$n); $v3=$ed->post('vl'.$n); $v4=$ed->post('nl'.$n); $v5=$ed->post('df'.$n);
-			$q1.=$v1." ".$v2.($v3!='' ? "(".$v3.")":"").($v4!=0 ? " NOT NULL":"").($v5!="" ? " DEFAULT '".$v5."'":"").",";
+			$q1.=$v1." ".$v2.($v3!='' ? "(".$v3.")":"").($v4==1 ? " NOT NULL":"").($v5!="" ? " DEFAULT '".$v5."'":"").",";
 			}
 			++$n;
 		}
@@ -645,7 +645,7 @@ case "11"://add new field
 	if($ed->post('add','i')) {
 		$f1= $ed->sanitize($ed->post('f1'));
 		if(!empty($f1)) {
-		$e= $ed->con->exec("ALTER TABLE ".$tb." ADD COLUMN ".$f1." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')!=0 ? " NOT NULL":"").($ed->post('f5')!='' ? " ".$ed->post('f5'):""));
+		$e= $ed->con->exec("ALTER TABLE ".$tb." ADD COLUMN ".$f1." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')==1 ? " NOT NULL":"").($ed->post('f5')!='' ? " DEFAULT '".$ed->post('f5')."'":""));
 		} else $ed->redir("10/$db/$tb",array('err'=>"Empty field name"));
 		$ed->con = null;
 		if($e) $ed->redir("10/$db/$tb",array('ok'=>"Successfully added"));
@@ -674,7 +674,7 @@ case "12"://change field structure
 		if($e[1]==$fn){
 			$na1 = $ed->sanitize($ed->post("cf1"));
 			if(empty($na1) || is_numeric(substr($na1,0,1))) $ed->redir("10/$db/$tb",array('err'=>"Not a valid field name"));
-			$qr.= $na1." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf5')!=0 ? " NOT NULL":"").($ed->post("cf5")!=''?" ".$ed->post("cf5"):"").",";
+			$qr.= $na1." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf4')==1 ? " NOT NULL":"").($ed->post("cf5")!=''?" DEFAULT ".$ed->post("cf5"):"").",";
 			$pk.= ($e[5]==1 ? $na1.",":"");
 		} else {
 			$qr.= $e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " ".$e[4]:"").",";
@@ -688,6 +688,7 @@ case "12"://change field structure
 		$ed->con->exec("PRAGMA writable_schema=1");
 		//rename field in table
 		$ed->con->exec("UPDATE sqlite_master SET sql='$qrs' WHERE name='$tb'");
+
 		//rename field in index
 		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='{$tb}'")->fetch(1);
 		foreach($q_idx as $r_idx) {
@@ -728,7 +729,7 @@ case "12"://change field structure
 				echo "<tr><td><input type='text' name='cf1' value='".$d[1]."' /></td><td><select name='cf2'>".$ed->fieldtype(strtoupper($d_val[0])).
 				"</select></td><td><input type='text' name='cf3' value='".(isset($d_val[1])?$d_val[1]:"")."' /></td>
 				<td><select name='cf4'><option value='0'>Yes</option><option value='1'".($d[3]!=0 ? " selected":"").">No</option></select></td>
-				<td><input type='text' name='cf5' value='".$d[4]."' /></td></tr>";
+				<td><input type='text' name='cf5' value='".str_replace("'","",$d[4])."' /></td></tr>";
 			}
 		}
 		echo "<tr><td class='c1' colspan=5><button type='submit' name='change'>Change field</button></td></tr></table></form></div>";
