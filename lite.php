@@ -216,11 +216,14 @@ class ED {
 		if(!$ist) $this->redir("5/".$db,array('err'=>"Table not exist"));
 		}
 		if(in_array(3,$level)) {//check field
-			$q_fld = $this->con->query("SELECT ".$this->sg[3]." FROM ".$this->sg[2], true)->fetch();
-			if($q_fld===FALSE) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
+			$q_fld= $this->con->query("PRAGMA table_info($tb)")->fetch(2);
+			$meta= array();
+			foreach($q_fld as $row) {
+			array_push($meta, $row['name']);
+			}
+			if(!in_array($this->sg[3],$meta)) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
 			if(isset($this->sg[5])) {
-			$q_fld2 = $this->con->query("SELECT ".$this->sg[5]." FROM ".$this->sg[2], true)->fetch();
-			if($q_fld2===FALSE) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
+			if(!in_array($this->sg[5],$meta)) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
 			}
 		}
 		if(in_array(4,$level)) {//check pagination
@@ -305,16 +308,6 @@ class ED {
 		if(empty($e)) $this->redir("5/".$this->sg[1],array('err'=>"Query failed"));
 		return $e;
 	}
-	public function ver() {
-		if($_SESSION['contype'] == DBT::$contype[0]) {
-			$v=SQLite3::version();
-			$_SESSION['ver'] = $v['versionString'];
-		} else {
-			$dbv = new PDO('sqlite::memory:');
-			$_SESSION['ver'] = $dbv->getAttribute(PDO::ATTR_SERVER_VERSION);
-			unset($dbv);	 
-		}
-	}
 }
 $ed= new ED;
 $head= '<!DOCTYPE html><html><head>
@@ -382,7 +375,7 @@ for(var i=0;i<cbox.length;i++){
 cbox[i].checked = cb.checked;
 }}
 </script>
-</head><body><div class="l1">&nbsp;<b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a> '.(!empty($_SESSION['contype']) ? '<i>SQLite '.$_SESSION['ver'].'</i>':'').'</b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="lgn"><a href="'.$ed->path.'51">Logout</a>&nbsp;</div>').'</div>';
+</head><body><div class="l1">&nbsp;<b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="lgn"><a href="'.$ed->path.'60">Info</a> | <a href="'.$ed->path.'51">Logout</a>&nbsp;</div>').'</div>';
 $stru= "<table class='a1'><tr><th class='pro'>FIELD</th><th class='pro'>TYPE</th><th class='pro'>VALUE</th><th class='pro'>NULL</th><th class='pro'>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
@@ -510,7 +503,7 @@ case "7"://create table
 			++$n;
 		}
 		$q2= "CREATE TABLE ".$ed->sanitize($ed->post('ctab'))."(".substr($q1,0,-1).");";
-		echo "<p class='box'>".(strlen($q1) > 5 && $ed->con->exec($q2) ? "<b>OK!</b> $q2<br/>" : "<b>FAILED!</b> $q2")."</p>";
+		echo "<p class='box'>".(strlen($q1) > 5 && $ed->con->query($q2) ? "<b>OK!</b> $q2<br/>" : "<b>FAILED!</b> $q2")."</p>";
 		} else {
 		echo $ed->form("7/$db")."<input type='hidden' name='ctab' value='".$ed->post('ctab')."'/>
 		<input type='hidden' name='nrf' value='".$ed->post('nrf')."'/>".$stru;
@@ -645,7 +638,7 @@ case "11"://add new field
 	if($ed->post('add','i')) {
 		$f1= $ed->sanitize($ed->post('f1'));
 		if(!empty($f1)) {
-		$e= $ed->con->exec("ALTER TABLE ".$tb." ADD COLUMN ".$f1." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')==1 ? " NOT NULL":"").($ed->post('f5')!='' ? " DEFAULT '".$ed->post('f5')."'":""));
+		$e= $ed->con->query("ALTER TABLE ".$tb." ADD COLUMN ".$f1." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')==1 ? " NOT NULL":"").($ed->post('f5')!='' ? " DEFAULT '".$ed->post('f5')."'":""));
 		} else $ed->redir("10/$db/$tb",array('err'=>"Empty field name"));
 		$ed->con = null;
 		if($e) $ed->redir("10/$db/$tb",array('ok'=>"Successfully added"));
@@ -1467,7 +1460,6 @@ case "50": //login
 	if($ed->post('password','i') && $ed->post('contype','!e')) {
 		$_SESSION['contype']= $ed->post('contype');
 		$_SESSION['token']= base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$ed->post('password')));
-		$ed->ver();
 		$ed->redir();
 	}
 	session_unset();
@@ -1487,6 +1479,26 @@ case "51": //logout
 	session_unset();
 	session_destroy();
 	$ed->redir();
+break;
+
+case "60": //info
+	$ed->check();
+	echo $head."<div class='l2'><a href='{$ed->path}'>List DBs</a></div><div class='scroll'>
+	<table class='a1'><tr><th>VARIABLE</th><th>VALUE</th></tr>";
+	if($_SESSION['contype'] == DBT::$contype[0]) {
+		$v=SQLite3::version();
+		$ver= $v['versionString'];
+	} else {
+		$dbv= new PDO('sqlite::memory:');
+		$ver= $dbv->getAttribute(PDO::ATTR_SERVER_VERSION);
+		unset($dbv);	 
+	}
+	$q_var= array('Connected with'=>$_SESSION['contype'],'SQLite'=>$ver,'php'=>PHP_VERSION,'upload_max_filesize'=>ini_get("upload_max_filesize").'B');
+	foreach($q_var as $r_k=>$r_var) {
+	$bg=($bg==1)?2:1;
+	echo "<tr class='r c$bg'><td class='pro'>".$r_k."</td><td class='pro'>".$r_var."</td></tr>";
+	}
+	echo "</table>";
 break;
 }
 unset($_POST);
