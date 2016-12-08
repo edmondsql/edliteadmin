@@ -536,7 +536,7 @@ case "9":
 	if($ed->post('rtab','!e')) {//rename table
 		$new= $ed->sanitize($ed->post('rtab'));
 		$ren_tb= $ed->con->exec("ALTER TABLE $tb RENAME TO ".$new);
-		if(!$ren_tb) $ed->redir("10/$db/$tb",array('err'=>"Can't rename"));
+		if($ren_tb === false) $ed->redir("10/$db/$tb",array('err'=>"Can't rename"));
 		$ed->con->exec("BEGIN TRANSACTION");
 		$ed->con->exec("PRAGMA writable_schema=1");
 		$q_rvtab= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//rename tb name in views
@@ -587,8 +587,10 @@ case "9":
 	}
 	if(!empty($ed->sg[3])) {//drop index
 		$s_idx= base64_decode($ed->sg[3]);
-		$ed->con->exec("DROP INDEX ".$s_idx);
-		$ed->redir("10/$db/".$tb,array('ok'=>"Successfully dropped"));
+		$ed->con->query("PRAGMA foreign_keys=OFF");
+		$q_ii = $ed->con->exec("DROP INDEX ".$s_idx);
+		if($q_ii === false) $ed->redir("10/$db/".$tb,array('err'=>"Can't drop index"));
+		else $ed->redir("10/$db/".$tb,array('ok'=>"Successfully dropped"));
 	}
 	$ed->con = null;
 	$ed->redir("5/".$db,array('ok'=>"Successfully"));
@@ -885,8 +887,9 @@ case "22"://insert row
 		}
 		$qr2=substr($qr2,0,-1).") ";
 		$qr4=substr($qr4,0,-1).")";
-		$ed->con->exec($qr2.$qr4);
-		$ed->redir("21/$db/$tb",array('ok'=>"Successfully inserted"));
+		$q_inn= $ed->con->exec($qr2.$qr4);
+		if($q_inn === false) $ed->redir("21/$db/$tb",array('err'=>"Can't insert"));
+		else $ed->redir("21/$db/$tb",array('ok'=>"Successfully inserted"));
 	} else {
 		echo $head.$ed->menu($db,$tb,1);
 		echo $ed->form("22/$db/$tb", 1)."<table class='a'><caption>Insert Row</caption>";
@@ -933,8 +936,9 @@ case "23"://edit row
 			}
 		}
 		$qq=substr($qr,0,-1);
-		$ed->con->exec("UPDATE $tb SET ".$qq." WHERE ".$nu."='".$id."'");
-		$ed->redir("21/$db/$tb",array('ok'=>"Successfully updated"));
+		$q_edd= $ed->con->exec("UPDATE $tb SET ".$qq." WHERE ".$nu."='".$id."'");
+		if($q_edd === false) $ed->redir("21/$db/$tb",array('err'=>"Can't update"));
+		else $ed->redir("21/$db/$tb",array('ok'=>"Successfully updated"));
 	} else {
 		$arr= $ed->con->query("SELECT * FROM ".$tb." WHERE ".$nu."='".$id."'")->fetch(2);
 		if(!$arr) $ed->redir("21/$db/$tb",array('err'=>"Can't edit empty field"));
@@ -999,7 +1003,7 @@ case "26"://table empty
 	$ed->check(array(1,2),array('db'=>$ed->sg[1]));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
-	$exec_te= $ed->con->exec("DELETE FROM ".$tb);
+	$ed->con->exec("DELETE FROM ".$tb);
 	$ed->con = null;
 	$ed->redir("5/$db",array('ok'=>"Table is empty"));
 break;
@@ -1364,10 +1368,10 @@ case "40"://view
 			if($exi) $ed->redir("5/".$db,array('err'=>"This name exist"));
 			$vstat= $ed->post('uv2','',1);
 			$stat= $ed->con->exec($vstat);
-			if(!$stat) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
+			if($stat === false) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
 			$v_cre= $ed->con->exec("CREATE VIEW ".$tb." AS ".$vstat);
-			if($v_cre) $ed->redir("5/".$db,array('ok'=>"Successfully created"));
-			else $ed->redir("5/".$db,array('err'=>"Can't create view"));
+			if($v_cre === false) $ed->redir("5/".$db,array('err'=>"Can't create view"));
+			else $ed->redir("5/".$db,array('ok'=>"Successfully created"));
 		}
 		echo $head.$ed->menu($db);
 		echo $ed->form("40/$db");
@@ -1384,7 +1388,7 @@ case "40"://view
 			if($exi && $tb!=$r_uv[1]) $ed->redir("5/".$db,array('err'=>"This name exist"));
 			$vstat= $ed->post('uv2','',1);
 			$stat= $ed->con->exec($vstat);
-			if(!$stat) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
+			if($stat === false) $ed->redir("5/".$db,array('err'=>"Wrong statement"));
 			$ed->con->exec("DROP $ty ".$sp);
 			$ed->con->exec("CREATE VIEW ".$tb." AS ".$vstat);
 			$ed->redir("5/".$db,array('ok'=>"Successfully updated"));
@@ -1406,8 +1410,8 @@ case "41"://trigger
 		$r_tge= array(1=>'');
 		if($ed->post('utg1','!e') && $ed->post('utg5','!e')) {
 		$q_tgcrt= $ed->con->exec("CREATE TRIGGER ".$ed->sanitize($ed->post('utg1'))." ".$ed->post('utg2')." ".$ed->post('utg3')." ON ".$ed->post('utg4')." BEGIN ".$ed->post('utg5','',1)."; END");
-		if($q_tgcrt) $ed->redir("5/".$db,array('ok'=>"Successfully created"));
-		else $ed->redir("5/".$db,array('err'=>"Create trigger failed"));
+		if($q_tgcrt === false) $ed->redir("5/".$db,array('err'=>"Create trigger failed"));
+		else $ed->redir("5/".$db,array('ok'=>"Successfully created"));
 		}
 		echo $head.$ed->menu($db);
 		echo $ed->form("41/$db");
@@ -1420,8 +1424,8 @@ case "41"://trigger
 			if(is_numeric(substr($utg,0,1))) $ed->redir("5/".$db,array('err'=>"Not a valid name"));
 			$ed->con->exec("DROP {$ty} ".$sp);
 			$q_tgcrt= $ed->con->exec("CREATE TRIGGER ".$utg." ".$ed->post('utg2')." ".$ed->post('utg3')." ON ".$ed->post('utg4')." BEGIN ".$ed->post('utg5','',1)."; END");
-			if($q_tgcrt) $ed->redir("5/".$db,array('ok'=>"Successfully updated"));
-			else $ed->redir("5/".$db,array('err'=>"Update trigger failed"));
+			if($q_tgcrt === false) $ed->redir("5/".$db,array('err'=>"Update trigger failed"));
+			else $ed->redir("5/".$db,array('ok'=>"Successfully updated"));
 		}
 		$q_tge = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='$ty' AND name='$sp'", true)->fetch();
 		preg_match('/CREATE\sTRIGGER\s(.*)\s+(.*)\s+(.*)\s+ON\s+(.*)\s+BEGIN\s+(.*);\s+END$/i', $q_tge, $r_tge);
