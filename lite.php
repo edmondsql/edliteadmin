@@ -535,6 +535,7 @@ case "9":
 		$ed->con->exec("CREATE TABLE IF NOT EXISTS {$ncpy}.{$tb} (".$r_sql[1].");");
 		$ed->con->exec("INSERT INTO {$ncpy}.{$tb} SELECT * FROM ".$tb);
 		$ed->con->exec("DETACH DATABASE ".$ncpy);
+		$ed->redir("5/".$db,array('ok'=>"Successfully copied"));
 	}
 	if($ed->post('rtab','!e')) {//rename table
 		$new= $ed->sanitize($ed->post('rtab'));
@@ -558,8 +559,7 @@ case "9":
 		}
 		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->con->exec("COMMIT");
-	} else {
-		$ed->redir("10/$db/$tb",array('err'=>"Empty name"));
+		$ed->redir("5/".$db,array('ok'=>"Successfully renamed"));
 	}
 	if($ed->post('idx','!e') && is_array($ed->post('idx'))) {//create index
 		$idx = implode(',',$ed->post('idx'));
@@ -598,7 +598,7 @@ case "9":
 		else $ed->redir("10/$db/".$tb,array('ok'=>"Successfully dropped"));
 	}
 	$ed->con = null;
-	$ed->redir("5/".$db,array('ok'=>"Successfully"));
+	$ed->redir("10/$db/$tb",array('err'=>"Wrong action"));
 break;
 
 case "10"://table structure
