@@ -124,7 +124,7 @@ class ED {
 	}
 	public function clean($el, $cod='') {
 		if($cod==1) {
-		return trim(str_replace(array(">","<","\r\n","\r"), array("&gt;","&lt;","\n","\n"), $el));//between quota
+		return trim(str_replace(array(">","<","\r\n","\r"), array("&gt;","&lt;","\n","\n"), $el));//quota
 		} else {
 		return trim(str_replace(array(">","<","\\","'",'"',"\r\n","\r"), array("&gt;","&lt;","\\\\","&#039;","&quot;","\n","\n"), $el));
 		}
@@ -162,7 +162,7 @@ class ED {
 		++$f;
 		}
 		$str = "<div class='l2'><a href='{$this->path}'>List DBs</a> | <a href='{$this->path}31/$db'>Export</a> | <a href='{$this->path}5/$db'>List Tables</a>".
-		($tb==""?"</div>":" || <a href='{$this->path}10/$db/$tb'>Structure</a> | <a href='{$this->path}21/$db/$tb'>Browse</a> | <a href='{$this->path}26/$db/$tb'>Empty</a> | <a href='{$this->path}27/$db/$tb'>Drop</a> | <a href='{$this->path}28/$db/$tb'>Vacuum</a></div>").
+		($tb==""?"</div>":" || <a href='{$this->path}10/$db/$tb'>Structure</a> | <a href='{$this->path}21/$db/$tb'>Browse</a> | <a href='{$this->path}22/$db/$tb'>Insert</a> | <a href='{$this->path}26/$db/$tb'>Empty</a> | <a href='{$this->path}27/$db/$tb'>Drop</a> | <a href='{$this->path}28/$db/$tb'>Vacuum</a></div>").
 		"<div class='l3'>DB: <b>$db</b>".($tb==""?"":" || Table: <b>$tb</b>").(count($sp) >1 ?" || ".$sp[0].": <b>".$sp[1]."</b>":"")."</div><div class='scroll'>";
 		if($left==1) $str .= "<table><tr><td class='c1 left'><table><tr><td class='th'>Query</td></tr>
 		<tr><td>".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>DO</button></form></td></tr>
@@ -349,7 +349,7 @@ input[type=checkbox],input[type=radio]{position: relative;vertical-align: middle
 input[type=text],select {min-width:98px !important}
 optgroup option {padding-left:8px}
 </style>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
 <script type="text/javascript">
 $(document).ready(function(){
 '.((empty($_SESSION['ok']) && empty($_SESSION['err'])) ? '':'$("body").fadeIn("slow").prepend("'.
@@ -403,7 +403,7 @@ case ""://show DBs
 		$dbx = new DBT($ed->dir.$db_);
 		$qs_nr = $dbx->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' or type='view'", true)->fetch();
 		echo "<tr class='r c$bg'><td>".$db."
-		</td><td>".$qs_nr."</td><td><a href='{$ed->path}31/$db'>Exp</a> | <a".$del." href='{$ed->path}4/$db'>Drop</a> | <a href='{$ed->path}5/$db'>Browse</a>
+		</td><td>".$qs_nr."</td><td><a href='{$ed->path}31/$db'>Exp</a> | <a href='{$ed->path}4/$db'$del>Drop</a> | <a href='{$ed->path}5/$db'>Browse</a>
 		</td></tr>";
 		$dbx = NULL;
 	}
@@ -467,10 +467,12 @@ case "5"://show tables
 		$vl = "/$db/".$r_tabs[0];
 		if($r_tabs[1] == "view") {
 		$lnk = "40{$vl}/view";
+		$ins="";
 		} else {
 		$lnk = "10{$vl}";
+		$ins=" | <a href='{$ed->path}22{$vl}'>Insert</a>";
 		}
-		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>".($r_tabs[1] == "view" ? $r_tabs[1] : $q_num)."</td><td><a href='{$ed->path}{$lnk}'>Structure</a> | <a href='{$ed->path}27/$db/".$r_tabs[0]."'>Drop</a> | <a href='{$ed->path}21/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
+		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>".($r_tabs[1] == "view" ? $r_tabs[1] : $q_num)."</td><td><a href='{$ed->path}{$lnk}'>Structure</a> | <a href='{$ed->path}27/$db/".$r_tabs[0]."'$del>Drop</a> | <a href='{$ed->path}21/$db/".$r_tabs[0]."'>Browse</a>$ins</td></tr>";
 		}
 	}
 	echo "</table>";
@@ -479,7 +481,7 @@ case "5"://show tables
 	$trg_tab= "<table class='a mrg'><tr><th>TRIGGER</th><th>TABLE</th><th>ACTIONS</th></tr>";
 	foreach($q_tri as $r_tri) {
 	$bg=($bg==1)?2:1;
-	$trg_tab .= "<tr class='r c$bg'><td>".$r_tri[0]."</td><td>".$r_tri[1]."</td><td><a href='{$ed->path}41/$db/".$r_tri[0]."/trigger'>Edit</a> | <a href='{$ed->path}49/$db/".$r_tri[0]."/trigger'>Drop</a></td></tr>";
+	$trg_tab .= "<tr class='r c$bg'><td>".$r_tri[0]."</td><td>".$r_tri[1]."</td><td><a href='{$ed->path}41/$db/".$r_tri[0]."/trigger'>Edit</a> | <a href='{$ed->path}49/$db/".$r_tri[0]."/trigger'$del>Drop</a></td></tr>";
 	++$t;
 	}
 	echo ($t>0 ? $trg_tab."</table>":"");
@@ -827,7 +829,7 @@ case "21"://table browse
 	$q_vws = $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
 	echo $ed->menu($db,($q_vws != 'view' ? $tb:""),1);
 	echo "<table class='a'><tr>";
-	if($q_vws != 'view') echo "<th colspan=2><a href='{$ed->path}22/$db/$tb'>INSERT</a></th>";
+	if($q_vws != 'view') echo "<th colspan=2>ACTIONS</th>";
 	foreach($cols_name as $c_name) {
 	echo "<th>". $c_name['name']."</th>";
 	}
@@ -1224,7 +1226,7 @@ case "32"://export
 		$fopt=$ed->post('fopt');
 	}
 	}
-	if(in_array('sql',$ffmt)) {//data for sql format
+	if(in_array('sql',$ffmt)) {//data sql format
 		$sql.="-- EdLiteAdmin SQL Dump\n-- version ".$version."\n\n";
 		if(!empty($fopt)) {
 			foreach($tbs as $ttd) {
