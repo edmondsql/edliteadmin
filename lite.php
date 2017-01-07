@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=15;
-$version="3.2";
+$version="3.3";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 
@@ -162,9 +162,10 @@ class ED {
 		$nrf_op.= "<option value='$f'>$f</option>";
 		++$f;
 		}
+		$srch=((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
 		$str = "<div class='l2'><a href='{$this->path}'>List DBs</a> | <a href='{$this->path}31/$db'>Export</a> | <a href='{$this->path}5/$db'>List Tables</a>".
-		($tb==""?"</div>":" || <a href='{$this->path}10/$db/$tb'>Structure</a> | <a href='{$this->path}20/$db/$tb'>Browse</a> | <a href='{$this->path}21/$db/$tb'>Insert</a> | <a href='{$this->path}24/$db/$tb'>Empty</a> | <a class='del' href='{$this->path}25/$db/$tb'>Drop</a></div>").
-		"<div class='l3'>DB: <b>$db</b>".($tb==""?"":" || Table: <b>$tb</b>").(count($sp) >1 ?" || ".$sp[0].": <b>".$sp[1]."</b>":"")."</div><div class='scroll'>";
+		($tb==""?"</div>":" || <a href='{$this->path}10/$db/$tb'>Structure</a> | <a href='{$this->path}20/$db/$tb'>Browse</a> | <a href='{$this->path}21/$db/$tb'>Insert</a> | <a href='{$this->path}24/$db/$tb'>Search</a> | <a href='{$this->path}25/$db/$tb'>Empty</a> | <a class='del' href='{$this->path}26/$db/$tb'>Drop</a></div>").
+		"<div class='l3'>DB: <b>$db</b>".($tb==""?"":" || Table: <b>$tb</b>".$srch).(count($sp) >1 ?" || ".$sp[0].": <b>".$sp[1]."</b>":"")."</div><div class='scroll'>";
 		if($left==1) $str .= "<table><tr><td class='c1 left'><table><tr><td class='th'>Query</td></tr>
 		<tr><td>".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>DO</button></form></td></tr>
 		<tr><td class='th'>Import sql, csv, gz, zip, ".substr($this->ext,1)."</td></tr>
@@ -317,6 +318,7 @@ $head= '<!DOCTYPE html><html><head>
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge" /><![endif]-->
 <style type="text/css">
 * {margin:0;padding:0;font-size: 12px;color:#333;font-family:Arial}
+html, textarea {overflow:auto}
 a {color:#842;text-decoration:none}
 a:hover {text-decoration:underline}
 a,a:active,a:hover {outline: 0}
@@ -329,7 +331,7 @@ table {border-collapse: collapse}
 .c2 {background:#fff}
 td, th {padding:4px;vertical-align:top}
 .th {border-top:1px solid #555;font-weight:bold}
-.scroll {overflow-x:auto}
+.scroll {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;position:relative}
 td.pro,th.pro {border: 1px dotted #842}
 .l1,.l2,.l3,.wi {width:100%}
 input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;
@@ -342,15 +344,15 @@ input[type=checkbox],input[type=radio]{position: relative;vertical-align: middle
 .l1, th, caption, button {background:#9be}
 .l2,.c1 {background:#cdf}
 .l3, tr:hover.r, button:hover {background:#fe3 !important}
-.lgn, .msg{position:absolute;top:0;right:0}
+.lgn, .msg{position:absolute;top:0px;right:0px}
 .msg {z-index:1;cursor:pointer;cursor:hand}
-.ok, .err {display:inline-block;padding:8px;font-weight:bold;font-size:13px}
+.ok, .err {display:inline-block;padding:8px;font-weight:bold;font-size:13px;*display:inline;zoom:1}
 .ok {background:#EFE;color:#080;border-bottom:2px solid #080}
 .err {background:#FEE;color:#f00;border-bottom:2px solid #f00}
 .left *, input[type=password] {width:196px;position: relative;z-index:1}
 input[type=text],select {min-width:98px !important}
 optgroup option {padding-left:8px}
-.rgh {float:right;padding:3px 0}
+.rgh {float:right;*clear:left;padding:3px 0}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
 <script type="text/javascript">
@@ -488,7 +490,7 @@ case "5"://show tables
 		} else {
 		$lnk = "10{$vl}";
 		}
-		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>".($r_tabs[1] == "view" ? $r_tabs[1] : $q_num)."</td><td><a href='{$ed->path}{$lnk}'>Structure</a> | <a class='del' href='{$ed->path}25/$db/".$r_tabs[0]."'>Drop</a> | <a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
+		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>".($r_tabs[1] == "view" ? $r_tabs[1] : $q_num)."</td><td><a href='{$ed->path}{$lnk}'>Structure</a> | <a class='del' href='{$ed->path}26/$db/".$r_tabs[0]."'>Drop</a> | <a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
 		}
 	}
 	echo "</table>";
@@ -530,7 +532,7 @@ case "7"://create table
 		<input type='hidden' name='nrf' value='".$ed->post('nrf')."'/>".$stru;
 		$nr= $ed->post('nrf');
 		for($i=0;$i<$nr;$i++){
-		echo "<tr><td><input type=text name='fi".$i."' /></td><td><select name='ty".$i."'>".$ed->fieldtype()."</select></td><td><input type=text name='vl".$i."' /></td><td><select name='nl".$i."'><option value=0>Yes</option><option value=1>No</option></select></td><td><input type=text name='df".$i."' /></td></tr>";
+		echo "<tr><td><input type=text name='fi".$i."' /></td><td><select name='ty".$i."'>".$ed->fieldtype()."</select></td><td><input type=text name='vl".$i."' /></td><td><select name='nl".$i."'><option value='0'>Yes</option><option value='1'>No</option></select></td><td><input type=text name='df".$i."' /></td></tr>";
 		}
 		echo "<tr><td class='c1' colspan=5><button type='submit' name='crtb'>Create table</button></td></tr></table></form>";
 		}
@@ -632,7 +634,7 @@ case "10"://table structure
 		$bg=($bg==1)?2:1;
 		echo "<tr class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td class='pro'>".$rec[1]."</td><td class='pro'>".$rec[2]."</td><td class='pro'>".($rec[3]==0 ? 'Yes':'No')."</td><td class='pro'>".$rec[4]."</td><td class='pro'>".($rec[5]==1 ? 'PK':'')."</td><td class='pro'><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a> | <a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a> | <a href='{$ed->path}11/$db/$tb/'>add</a></td></tr>";
 	}
-	echo "<tr><td class='div' colspan=7><button type='submit' name='primary'>Primary</button> <button type='submit' name='index'>Index</button> <button type='submit' name='unique'>Unique</button><div class='rgh'><a href='{$ed->path}26/$db/$tb/analyze'>Analyze</a> <a href='{$ed->path}26/$db/$tb/vacuum'>Vacuum</a></div></td></tr></table></form>";
+	echo "<tr><td class='div' colspan=7><div class='rgh'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a> <a href='{$ed->path}27/$db/$tb/vacuum'>Vacuum</a></div><button type='submit' name='primary'>Primary</button> <button type='submit' name='index'>Index</button> <button type='submit' name='unique'>Unique</button></td></tr></table></form>";
 	$q_idx = $ed->con->query("PRAGMA index_list($tb)")->fetch(1);
 	echo "<table class='a c1 mrg'><tr><th colspan=4>INDEXES</th></tr><tr><th class='pro'>NAME</th><th class='pro'>COLUMN</th><th class='pro'>Unique</th><th class='pro'>Action</th></tr>";
 	foreach($q_idx as $rc) {
@@ -676,7 +678,7 @@ case "11"://add new field
 		echo "<tr><td><input type='text' name='f1' /></td>
 		<td><select name='f2'>".$ed->fieldtype()."</select></td>
 		<td><input type='text' name='f3' /></td>
-		<td><select name='f4'><option value=0>Yes</option><option value=1>No</option></select></td>
+		<td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td>
 		<td><input type='text' name='f5' /></td></tr>
 		<tr><td class='c1' colspan=5><button type='submit' name='add'>Add field</button></td></tr></table></form></div>";
 	}
@@ -827,25 +829,27 @@ case "20"://table browse
 	$ed->check(array(1,2),array('db'=>$ed->sg[1]));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
-	$all = $ed->con->query("SELECT COUNT(*) FROM ".$tb, true)->fetch();
+	$where=(!empty($_SESSION['_litesearch_'.$db.'_'.$tb])?" WHERE ".$_SESSION['_litesearch_'.$db.'_'.$tb] : "");
+	$all = $ed->con->query("SELECT COUNT(*) FROM ".$tb.$where, true)->fetch();
 	$totalpg = ceil($all/$step);
 	if(empty($ed->sg[3])) {
-		$pg = 1;
+		$pg= 1;
 	} else {
 		$pg = $ed->sg[3];
 		$ed->check(array(4),array('pg'=>$pg,'total'=>$totalpg,'redir'=>"20/$db/$tb"));
 	}
-	$offset = ($pg - 1) * $step;
-	$q_rex = $ed->con->query("SELECT * FROM $tb LIMIT $offset, $step");
-	$cols = $q_rex->num_col();
-	$res = $q_rex->fetch(1);
+	$offset= ($pg - 1) * $step;
+	$q_rex= $ed->con->query("SELECT * FROM {$tb}{$where} LIMIT $offset, $step");
+	$cols= $q_rex->num_col();
+	$r_rex= $q_rex->fetch(1);
 
-	$tbinfo = $ed->con->query("PRAGMA table_info($tb)");
+	$tbinfo= $ed->con->query("PRAGMA table_info($tb)");
 	$cols_name= $tbinfo->fetch(2);
 
 	echo $head;
-	$q_vws = $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
-	echo $ed->menu($db,($q_vws != 'view' ? $tb:""),1);
+	$q_vws= $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
+	echo $ed->menu($db,($q_vws=='view'?'':$tb),1,($q_vws=='view'?array('view',$tb):''));
+	
 	echo "<table class='a'><tr>";
 	if($q_vws != 'view') echo "<th colspan=2>ACTIONS</th>";
 	foreach($cols_name as $c_name) {
@@ -859,7 +863,7 @@ case "20"://table browse
 		$rinf[$r_ti[0]]= $r_ti[2];
 	}
 
-	foreach($res as $row) {
+	foreach($r_rex as $row) {
 		$bg=($bg==1)?2:1;
 		$id=base64_encode($row[0]);
 		echo "<tr class='r c$bg'>";
@@ -894,18 +898,18 @@ case "21"://insert row
 		$qr2="INSERT INTO $tb (";
 		$qr4="VALUES(";
 		$i=0;
-		foreach($q_pra as $r_re) {
-			if($ed->post('r'.$i,'e') && $r_re['notnull'] != 0) $ed->redir("20/$db/$tb",array('err'=>"Field structure is NotNull"));
-			if(strtolower($r_re['type'])=="boolean") {
-			$qr2.=$r_re['name'].",";
+		foreach($q_pra as $r_ra) {
+			if($ed->post('r'.$i,'e') && $r_ra['notnull'] != 0) $ed->redir("20/$db/$tb",array('err'=>"Field structure is NotNull"));
+			if(strtolower($r_ra['type'])=="boolean") {
+			$qr2.=$r_ra['name'].",";
 			$qr4.= "'".($ed->post('r'.$i,0) ? 1:'')."',";
-			} elseif(strtolower($r_re['type'])=="blob") {
+			} elseif(strtolower($r_ra['type'])=="blob") {
 			if(!empty($_FILES['r'.$i]['tmp_name'])) {
-			$qr2.=$r_re['name'].",";
+			$qr2.=$r_ra['name'].",";
 			$qr4 .= "'".base64_encode(file_get_contents($_FILES['r'.$i]['tmp_name']))."',";
 			}
 			} else {
-			$qr2.=$r_re['name'].",";
+			$qr2.=$r_ra['name'].",";
 			$qr4.="'".$ed->post('r'.$i,'',1)."',";
 			}
 			++$i;
@@ -988,7 +992,7 @@ case "22"://edit row
 			}
 			echo "</td></tr>";
 		}
-		echo "<tr><td class='c1' colspan=2><button type='submit' name='edit'>Update</button></td></tr></table></form>";
+		echo "<tr><td class='c1' colspan='2'><button type='submit' name='edit'>Update</button></td></tr></table></form>";
 		echo "</td></tr></table></div>";
 	}
 break;
@@ -1002,7 +1006,59 @@ case "23"://delete row
 	else $ed->redir("20/$db/$tb",array('err'=>"Delete row failed"));
 break;
 
-case "24"://table empty
+case "24"://search
+	$ed->check(array(1,2),array('db'=>$ed->sg[1]));
+	$db= $ed->sg[1];
+	$tb= $ed->sg[2];
+	unset($_SESSION['_litesearch_'.$db.'_'.$tb]);
+	if(!empty($ed->sg[3]) && $ed->sg[3]=='reset') {
+	$ed->redir("20/$db/$tb",array('ok'=>"Reset search"));
+	}
+	$q_se= $ed->con->query("PRAGMA table_info($tb)")->fetch(2);
+	$cond1=array('=','<','>','<=','>=','!=','LIKE','NOT LIKE','REGEXP','NOT REGEXP');
+	$cond2=array('BETWEEN','NOT BETWEEN');
+	$cond3=array('IN','NOT IN');
+	$cond4=array('IS NULL','IS NOT NULL');
+	$cond= array_merge($cond1,$cond2,$cond3,$cond4);
+	
+	if($ed->post('search','i')) {
+	$search_cond=array();
+	foreach($q_se as $r_se) {
+		if($ed->post($r_se['name'],'!e') || in_array($ed->post('cond__'.$r_se['name']),$cond4)) {
+		$fd= $r_se['name'];
+		$cd= $ed->post('cond__'.$fd);
+		$po= $ed->post($fd);
+		if(in_array($cd,$cond2)) {
+		$sl= preg_split("/[,]+/", $po);
+		$sl2= (!empty($sl[1])?$sl[1]:$sl[0]);
+		$search_cond[]= $fd." ".$cd." '".$sl[0]."' AND '".$sl2."'";
+		}
+		elseif(in_array($cd,$cond3)) $search_cond[]= $fd." ".$cd." ('".$po."')";
+		elseif(in_array($cd,$cond4)) $search_cond[]= $fd." ".$cd;
+		else $search_cond[]= $fd." ".html_entity_decode($ed->post('cond__'.$fd))." '".$po."'";
+		}
+	}
+	$se_str = implode(" AND ", $search_cond).($ed->post('order_field','!e')?" ORDER BY ".$ed->post('order_field')." ".$ed->post('order_ord')." ":"");
+	$_SESSION['_litesearch_'.$db.'_'.$tb]= $se_str;
+	$ed->redir("20/$db/$tb");
+	}
+	
+	echo $head.$ed->menu($db,$tb,1);
+	echo $ed->form("24/$db/$tb")."<table class='a'><caption>Search</caption>";
+	$conds="";
+	foreach($cond as $cnd) $conds .= "<option value='".$cnd."'>".$cnd."</option>";
+	$fields="<option value=''>&nbsp;</option>";
+	foreach($q_se as $r_se) {
+	$fl= $r_se['name'];
+	$fields .= "<option value='$fl'>".$fl."</option>";
+	echo "<tr><td>".$fl."</td><td><select name='cond__".$fl."'>".$conds."</select></td><td><input type='text' name='$fl'/></td></tr>";
+	}
+	echo "<tr class='c1'><td>ORDER</td><td><select name='order_field'>".$fields."</select></td><td><select name='order_ord'><option value='ASC'>ASC</option><option value='DESC'>DESC</option></select></td></tr>
+	<tr><td class='c1' colspan='3'><button type='submit' name='search'>Search</button></td></tr></table></form>
+	</td></tr></table></div>";
+break;
+
+case "25"://table empty
 	$ed->check(array(1,2),array('db'=>$ed->sg[1],'noView'=>1));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
@@ -1011,7 +1067,7 @@ case "24"://table empty
 	$ed->redir("5/$db",array('ok'=>"Table is empty"));
 break;
 
-case "25"://drop table, view
+case "26"://drop table, view
 	$ed->check(array(1,2),array('db'=>$ed->sg[1]));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
@@ -1033,7 +1089,7 @@ case "25"://drop table, view
 	$ed->redir("5/$db",array('ok'=>"Successfully dropped"));
 break;
 
-case "26"://vacuum, analyze
+case "27"://vacuum, analyze
 	$ed->check(array(1,2),array('db'=>$ed->sg[1],'noView'=>1));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
@@ -1052,7 +1108,7 @@ case "30"://import
 	$out="";
 	$q=0;
 	set_time_limit(0);
-	$rgex = "~^\xEF\xBB\xBF|(\#|--).*|(\/\*).*(\*\/)|(?-m)\(([^)]*\)*(\"*.*\"*)*('*.*'*))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~m";
+	$rgex = "~^\xEF\xBB\xBF|(\#|--).*|(\/\*).*(\*\/)|(?-m)\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~m";
 	if($ed->post('qtxt','!e')) {//in textarea
 		$e= preg_split($rgex, $ed->post('qtxt','',1), -1, PREG_SPLIT_NO_EMPTY);
 	} elseif($ed->post('send','i') && $ed->post('send') == "ja") {//from file
@@ -1177,7 +1233,7 @@ case "31"://export form
 	<p><input type='checkbox' onclick='selectall(\"tables\",\"sel\")' id='sel' /> Select/Deselect</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
-	echo "<option value='".$tts."'>".$tts."</option>";
+	echo "<option value='$tts'>".$tts."</option>";
 	}
 	echo "</select></td></tr></table>
 	<table class='a1 wi'><tr><th style='text-align:left'><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /></th><th>Options</th></tr><tr><td colspan=2>";
