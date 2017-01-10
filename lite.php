@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.4";
+$version="3.4.1";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -155,7 +155,7 @@ class ED {
 	public function menu($db='', $tb='', $left='', $sp=array()) {
 		$srch=((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
 		$str='';
-		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>DBs</a></li>";
+		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>Databases</a></li>";
 		if($db!='' && $db!=1) $str .= "<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
 
 		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
@@ -334,7 +334,7 @@ html, textarea {overflow:auto}
 .active {font-weight:bold}
 ul {list-style:none}
 li {float:left}
-h3 {background:#cdf;border-top:1px solid #555;margin-top:2px;margin-bottom:3px}
+h3 {background:#cdf;border-top:1px solid #555;margin-top:1px;padding:2px 0}
 a {color:#842;text-decoration:none;background-color:transparent}
 a:hover {text-decoration:underline}
 a,a:active,a:hover {outline:0}
@@ -726,7 +726,7 @@ case "12"://change field structure
 		if($q_rvtab) {
 			foreach($q_rvtab as $r_rvtab) {
 			if(strpos($r_rvtab[1]," ".$tb)!= false) {
-			$replv= str_replace($fn,$na1,$r_rvtab[1]);
+			$replv= preg_replace('/\b('.$fn.')\b/i',$na1,$r_rvtab[1]);
 			$ed->con->exec("UPDATE sqlite_master SET sql='".$replv."' WHERE name='".$r_rvtab[0]."'");
 			}
 			}
@@ -735,7 +735,7 @@ case "12"://change field structure
 		$q_rvtig= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
 		if($q_rvtig) {
 		foreach($q_rvtig as $r_rvtig) {
-			$replt= str_replace($fn,$na1,$r_rvtig[1]);
+			$replt= preg_replace('/\b('.$fn.')\b/i',$na1,$r_rvtig[1]);
 			$ed->con->exec("UPDATE sqlite_master SET sql='".$replt."' WHERE name='".$r_rvtig[0]."'");
 		}
 		}
