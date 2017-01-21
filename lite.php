@@ -6,21 +6,22 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.4.1";
+$version="3.5";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
 class DBT {
 	public static $litetype= array('sqlite3','pdo_sqlite');
 	private static $instance = NULL;
-	private $_cnx, $_query, $_fetch = array(), $_num_col;
+	private $_cnx, $_query, $_fetch = array(), $_num_col, $ltype;
 	public static function factory($db) {
 		if(!isset(self::$instance))
 		self::$instance = new DBT($db);
 		return self::$instance;
 	}
 	public function __construct($db) {
-		if($_SESSION['litetype'] == self::$litetype[0]) {
+		$this->ltype=(extension_loaded(self::$litetype[0])?self::$litetype[0]:self::$litetype[1]);
+		if($this->ltype == self::$litetype[0]) {
 			$this->_cnx = new SQLite3($db);
 		} else {
 			$this->_cnx = new PDO("sqlite:".$db);
@@ -32,7 +33,7 @@ class DBT {
 	}
 	public function query($sql, $single=false) {
 		try{
-			if($_SESSION['litetype'] == self::$litetype[0]) {
+			if($this->ltype == self::$litetype[0]) {
 				if($single == false) {
 				$this->_query = $this->_cnx->query($sql);
 				} else {
@@ -47,21 +48,21 @@ class DBT {
 		}
 	}
 	public function last() {
-		if($_SESSION['litetype'] == self::$litetype[0]) {
+		if($this->ltype == self::$litetype[0]) {
 		return $this->_cnx->changes();
 		} else {
 		return $this->_query->rowCount();
 		}
 	}
 	public function err() {
-		if($_SESSION['litetype'] == self::$litetype[0]) {
+		if($this->ltype == self::$litetype[0]) {
 		return $this->_cnx->lastErrorCode();
 		} else {
 		return $this->_cnx->errorInfo();
 		}
 	}
 	public function fetch($mode=0) {
-		if($_SESSION['litetype'] == self::$litetype[0]) {
+		if($this->ltype == self::$litetype[0]) {
 		if($mode > 0) {
 			switch($mode){
 			case 1:
@@ -98,7 +99,7 @@ class DBT {
 		}
 	}
 	public function num_col() {
-		if($_SESSION['litetype'] == self::$litetype[0]) {
+		if($this->ltype == self::$litetype[0]) {
 		$this->_num_col = $this->_query->numColumns();
 		} else {
 		$this->_num_col = $this->_query->columnCount();
@@ -126,6 +127,24 @@ class ED {
 		return trim(str_replace(array(">","<","\\","'",'"',"\r\n","\r"), array("&gt;","&lt;","\\\\","&#039;","&quot;","\n","\n"), $el));
 		}
 	}
+	public function sanitize($el) {
+		return preg_replace(array('/[^A-Za-z0-9]/'),'_',trim($el));
+	}
+	public function form($furl, $enc='') {
+		return "<form action='".$this->path.$furl."' method='post'".($enc==1 ? " enctype='multipart/form-data'":"").">";
+	}
+	public function fieldtype($slct='') {
+		$fieldtype= array('Numbers'=>array("INTEGER","INT","BIGINT","DECIMAL"),'Strings'=>array("VARCHAR","TEXT"),'DateTime'=>array("DATE","DATETIME","TIME","TIMESTAMP"),'Binary'=>array("BOOLEAN","BLOB"));
+		$ft='';
+		foreach($fieldtype as $fdk=>$fdtype) {
+		if(is_array($fdtype)) {
+		$ft .= "<optgroup label='$fdk'>";
+		foreach($fdtype as $fdty) $ft .= "<option value='$fdty'".(($slct!='' && $fdty==$slct)?" selected":"").">$fdty</option>";
+		$ft .= "</optgroup>";
+		}
+		}
+		return $ft;
+	}
 	public function post($idxk='', $op='', $clean='') {
 		if($idxk === '' && !empty($_POST)) {
 		return ($_SERVER['REQUEST_METHOD'] === 'POST' ? TRUE : FALSE);
@@ -149,8 +168,11 @@ class ED {
 		if($op=='!e') return !empty($aout);
 		return $aout;
 	}
-	public function form($furl, $enc='') {
-		return "<form action='".$this->path.$furl."' method='post'".($enc==1 ? " enctype='multipart/form-data'":"").">";
+	public function redir($way='', $msg=array()) {
+		if(count($msg) > 0) {
+		foreach($msg as $ks=>$ms) $_SESSION[$ks]= $ms;
+		}
+		header('Location: '.$this->path.$way);exit;
 	}
 	public function menu($db='', $tb='', $left='', $sp=array()) {
 		$srch=((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
@@ -159,9 +181,9 @@ class ED {
 		if($db!='' && $db!=1) $str .= "<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
 
 		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
-		
 		$str .=($db==""?"":"</ul><br class='clear'/></div>");
-		if($db!="" && $db!=1) $str .="<div class='l3'>&nbsp;DB: <b>$db</b>".($tb==""?"":" --- Table: <b>$tb</b>".$srch).(count($sp) >1 ?" --- ".$sp[0].": <b>".$sp[1]."</b>":"")."</div>";
+
+		if($db!="" && $db!=1) $str .="<div class='l3'>&nbsp;Database: <b>$db</b>".($tb==""?"":" Table: <b>$tb</b>".$srch).(count($sp) >1 ?" ".$sp[0].": <b>".$sp[1]."</b>":"")."</div>";
 		$str .="<div class='container'>";
 		if($left==2) $str .="<div class='col3'>";
 
@@ -170,7 +192,7 @@ class ED {
 		$nrf_op.= "<option value='$f'>$f</option>";
 		++$f;
 		}
-		if($left==1) $str .= "<div class='col1'><h3>Query</h3>
+		if($left==1) $str .= "<div class='col1'><h3>SQL Query</h3>
 		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>DO</button></form>
 		<h3>Import sql, csv, gz, zip, ".substr($this->ext,1)."</h3>".$this->form("30/$db",1)."<input type='file' name='importfile' />
 		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
@@ -179,64 +201,47 @@ class ED {
 		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
 		return $str;
 	}
-	public function fieldtype($slct='') {
-		$fieldtype= array('Numbers'=>array("INTEGER","INT","BIGINT","DECIMAL"),'Strings'=>array("VARCHAR","TEXT"),'DateTime'=>array("DATE","DATETIME","TIME","TIMESTAMP"),'Binary'=>array("BOOLEAN","BLOB"));
-		$ft='';
-		foreach($fieldtype as $fdk=>$fdtype) {
-		if(is_array($fdtype)) {
-		$ft .= "<optgroup label='$fdk'>";
-		foreach($fdtype as $fdty) $ft .= "<option value='$fdty'".(($slct!='' && $fdty==$slct)?" selected":"").">$fdty</option>";
-		$ft .= "</optgroup>";
-		}
-		}
-		return $ft;
-	}
-	public function redir($way='', $msg=array()) {
-		if(count($msg) > 0) {
-		foreach($msg as $ks=>$ms) $_SESSION[$ks]= $ms;
-		}
-		header('Location: '.$this->path.$way);exit;
-	}
-	public function sanitize($el) {
-		return preg_replace(array('/[^A-Za-z0-9]/'),'_',trim($el));
-	}
 	public function check($level=array(), $param=array()) {
-		if(!empty($_SESSION['ltoken']) && !empty($_SESSION['litetype'])) {
-		if(!in_array($_SESSION['litetype'], DBT::$litetype)) $this->redir("50");
+		if(!empty($_SESSION['ltoken'])) {
 		if($_SESSION['ltoken'] != base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$this->passwd))) $this->redir("50",array('err'=>"Wrong password"));
+		session_regenerate_id(true);
 		} else {
 		$this->redir("50");
 		}
 		if(in_array(1,$level)) {//exist db
-		$db = $this->sg[1];
-		if(!is_file($this->dir.$db.$this->ext)) $this->redir('',array('err'=>"DB not exist"));
+		$op= $this->sg[0];
+		$db= $this->sg[1];
+		$dbx= $this->dir.$db.$this->ext;
+		if(!is_file($dbx)) $this->redir('',array('err'=>"DB not exist"));
+		if(is_writable($this->dir) && $op!=3 && $op!=4) {//connect db
+		$this->con = DBT::factory($dbx);
+		$this->con->exec("PRAGMA default_synchronous=OFF");//faster
 		}
-		if(!empty($param['db']) && is_writable($this->dir)) {//connect db
-		$this->con = DBT::factory($this->dir.$param['db'].$this->ext);
 		}
 		if(in_array(2,$level)) {//check table
 		$tb= $this->sg[2];
-		$obj= (isset($param['noView']) ? "type='table'":"(type='table' OR type='view')");
+		$obj= (($op==20) ? "(type='table' OR type='view')":"type='table'");
 		$ist= $this->con->query("SELECT 1 FROM sqlite_master WHERE name='$tb' AND ".$obj, true)->fetch();
 		if(!$ist) $this->redir("5/".$db,array('err'=>"Table not exist"));
 		}
 		if(in_array(3,$level)) {//check field
 			$q_fld= $this->con->query("PRAGMA table_info($tb)")->fetch(2);
 			$meta= array();
-			foreach($q_fld as $row) {
-			array_push($meta, $row['name']);
-			}
+			foreach($q_fld as $row) $meta[]= $row['name'];
 			if(!in_array($this->sg[3],$meta)) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
 			if(isset($this->sg[5])) {
 			if(!in_array($this->sg[5],$meta)) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
 			}
 		}
 		if(in_array(4,$level)) {//check pagination
-			if(!is_numeric($param['pg']) || $param['pg'] > $param['total'] || $param['pg'] < 1) $this->redir($param['redir'],array('err'=>"Invalid page number"));
+		if(!is_numeric($param['pg']) || $param['pg'] > $param['total'] || $param['pg'] < 1) $this->redir($param['redir'],array('err'=>"Invalid page number"));
 		}
 		if(in_array(5,$level)) {//check view, trigger
-			$q_sp = $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$this->sg[2]."' AND type='".$this->sg[3]."'", true)->fetch();
-			if(!$q_sp) $this->redir("5/".$db,array('err'=>"Not available object"));
+		$sp= array('view','trigger');
+		$sg3=$this->sg[3];
+		if($op!=49 && ($op==40 && $sg3!=$sp[0]) || ($op==41 && $sg3!=$sp[1])) $this->redir("5/".$db);
+		$q_sp = $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$this->sg[2]."' AND type='$sg3'", true)->fetch();
+		if(!$q_sp) $this->redir("5/".$db,array('err'=>"Not available object"));
 		}
 	}
 	public function pg_number($pg, $totalpg) {
@@ -254,25 +259,6 @@ class ED {
 		$rgt= ($pg < $totalpg?"<a href='$link/".($pg+1)."'>Next</a><a href='$link/$totalpg'>Last</a>":"");
 		return "<div class='pg'>".$lft.$pgs.$rgt."</div>";
 		}
-	}
-	public function imp_sqlite($fname, $fbody) {
-		if($fbody!='') {
-		if(substr(file_get_contents($fbody), 0, 15) !="SQLite format 3" && substr($fbody, 0, 15) !="SQLite format 3") $this->redir('',array('err'=>"No SQLite file"));
-		$file= pathinfo($fname);
-		$new= $this->dir.$this->sanitize($file['filename']).$this->ext;
-		if(is_uploaded_file($fbody)) {
-			if(move_uploaded_file($fbody, $new)) {
-			$this->redir('',array('ok'=>"SQLite file uploaded"));
-			}
-		} else {
-			$sfile = fopen($new, "wb");
-			if(!$sfile) $this->redir('',array('err'=>"Unable to create sqlite file"));
-			fwrite($sfile, $fbody);
-			fclose($sfile);
-			$this->redir('',array('ok'=>"SQLite file uploaded"));
-		}
-		}
-		$this->redir('',array('err'=>"No upload"));
 	}
 	public function imp_csv($fname, $fbody) {
 		$exist= $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$fname."' AND type='table'", true)->fetch();
@@ -313,6 +299,38 @@ class ED {
 		if(empty($e)) $this->redir("5/".$this->sg[1],array('err'=>"Query failed"));
 		return $e;
 	}
+	public function imp_sqlite($fname, $fbody) {
+		if($fbody!='') {
+		if(substr(file_get_contents($fbody), 0, 15) !="SQLite format 3" && substr($fbody, 0, 15) !="SQLite format 3") $this->redir('',array('err'=>"No SQLite file"));
+		$file= pathinfo($fname);
+		$new= $this->dir.$this->sanitize($file['filename']).$this->ext;
+		if(is_uploaded_file($fbody)) {
+			if(move_uploaded_file($fbody, $new)) {
+			$this->redir('',array('ok'=>"SQLite file uploaded"));
+			}
+		} else {
+			$sfile = fopen($new, "wb");
+			if(!$sfile) $this->redir('',array('err'=>"Unable to create sqlite file"));
+			fwrite($sfile, $fbody);
+			fclose($sfile);
+			$this->redir('',array('ok'=>"SQLite file uploaded"));
+		}
+		}
+		$this->redir('',array('err'=>"No upload"));
+	}
+	public function listdb() {
+		$dbs= array();
+		$dh = @opendir($this->dir);
+		while(($dbe = readdir($dh)) != false) {
+			preg_match("/(\\".$this->ext.")$/i",$dbe,$dbext);
+			if(is_file($this->dir.$dbe) && end($dbext) == $this->ext) {
+				$dbs[] = basename($dbe, $this->ext);
+			}
+		}
+		closedir($dh);
+		sort($dbs);
+		return $dbs;
+	}
 }
 $ed= new ED;
 $head= '<!DOCTYPE html><html><head>
@@ -323,7 +341,11 @@ $head= '<!DOCTYPE html><html><head>
 html {-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
 html, textarea {overflow:auto}
 .container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;position:relative}
-[hidden]{display:none}
+[hidden],.more div{display:none}
+.more {position:relative}
+.more div a {display:block;padding:0;width:100%}
+.more div {position:absolute;z-index:8}
+small {font-size:9px}
 .clear {clear:both}
 .cntr {text-align:center}
 .left {float:left}
@@ -332,34 +354,32 @@ html, textarea {overflow:auto}
 .link {padding:3px 0}
 .pg * {padding:0 2px}
 .active {font-weight:bold}
-ul {list-style:none}
-li {float:left}
+.l2 ul {list-style:none}
+.l2 li {float:left}
 h3 {background:#cdf;border-top:1px solid #555;margin-top:1px;padding:2px 0}
 a {color:#842;text-decoration:none;background-color:transparent}
 a:hover {text-decoration:underline}
 a,a:active,a:hover {outline:0}
-table a, .l1 a, .l2 a, .col1 a {padding:0 3px}
-table {border-collapse: collapse;border-spacing:0;border:1px solid #555}
+table a,.l1 a,.l2 a,.col1 a {padding:0 3px}
+table {border-collapse: collapse;border-spacing:0;border-bottom:1px solid #555}
 td, th {padding:4px;vertical-align:top}
 .dot {border: 1px dotted #842}
 input[type=checkbox],input[type=radio]{position: relative;vertical-align: middle;bottom: 1px}
-input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius: 4px;-moz-border-radius: 4px;border-radius: 4px;-khtml-border-radius:4px;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box}
+input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius: 4px;-moz-border-radius: 4px;border-radius: 4px;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box}
 input[type=text],select {min-width:98px !important}
 select {padding:1px 0}
 optgroup option {padding-left:8px}
 textarea, .he {min-height:90px}
-.auto button, .auto input {width:auto}
-.msg {position:absolute;top:0;right:0;z-index:1;position:fixed;cursor:pointer}
+.msg {position:absolute;top:0;right:0;z-index:9;position:fixed}
 .ok, .err {padding:8px;font-weight:bold;font-size:13px}
 .ok {background:#EFE;color:#080;border-bottom:2px solid #080}
 .err {background:#FEE;color:#f00;border-bottom:2px solid #f00}
-.l1,.l2,.l3 {width:100%}
 .l1, th, caption, button {background:#9be}
 .l2,.c1,.col1 {background:#cdf}
-.c2 {background:#fff}
+.c2,.more div a {background:#fff}
 .l3, tr:hover.r, button:hover {background:#fe3 !important}
-.ok, .err, .col1, .col2, .inline {display:inline-block;*display:inline;zoom:1}
-.col1 textarea {position: relative;z-index:1}
+.ok,.err,.col1,.col2 {display:inline-block;*display:inline;zoom:1}
+.col1 textarea {position: relative;z-index:3}
 .col1 button {margin-bottom:1px}
 .col1 {vertical-align:top;padding-left:3px;padding-right:3px}
 .col1 {padding-bottom: 100%;margin-bottom: -100%}
@@ -367,13 +387,17 @@ textarea, .he {min-height:90px}
 .col2 table {margin:3px 3px 0 3px}
 .col3 table, .dw {margin:3px auto}
 .dw div {padding-top:3px}
+
+.auto button, .auto input {width:auto}
+.l1,.l2,.l3 {width:100%}
+.msg,.a {cursor:pointer}
 </style>
 <script src="'.$jquery.'" type="text/javascript"></script>
 <script type="text/javascript">
 $(document).ready(function(){
 $("#passwd").focus();
 $("noscript").remove();
-'.((empty($_SESSION['ok']) && empty($_SESSION['err'])) ? '':'$("body").fadeIn("slow").prepend("'.
+'.((empty($_SESSION['ok']) && empty($_SESSION['err'])) ? '':'$("body").fadeIn().prepend("'.
 (!empty($_SESSION['ok']) ? '<div class=\"msg ok\">'.$_SESSION['ok'].'<\/div>':'').
 (!empty($_SESSION['err']) ? '<div class=\"msg err\">'.$_SESSION['err'].'<\/div>':'').'");
 setTimeout(function(){$(".msg").fadeOut("slow",function(){$(this).remove();});}, 7000);').'
@@ -385,11 +409,12 @@ $("body").fadeIn("slow").prepend("<div class=\"msg\"><div class=\"ok\">Yes<\/div
 $(".msg .ok").click(function(){window.location = but.prop("href");});
 $(".msg .err").click(function(){$(".msg").remove();});
 $(document).keyup(function(e){
-if(e.which==89 || e.which==13 || e.which==32) window.location=but.prop("href");
+if(e.which==89 || e.which==32) window.location=but.prop("href");
 if(e.which==27 || e.which==78) $(".msg").remove();
 });
 });
 $(".msg").dblclick(function(){$(this).hide()});
+$(".more").hover(function(){$(".more div").fadeIn();},function(){$(".more div").fadeOut(100);});
 });
 function selectall(lb, cb) {
 var cb=document.getElementById(cb);
@@ -410,7 +435,9 @@ cbox[i].checked = cb.checked;
 }}
 </script>
 </head><body><noscript><h1 class="msg err">Please, activate javascript in browser!</h1></noscript>
-<div class="l1"><div class="left"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b></div>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="right"><a href="'.$ed->path.'60">Info</a><a href="'.$ed->path.'51">Logout</a></div>').'<br class="clear"/></div>';
+<div class="l1"><div class="left"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b></div>'.
+(isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="right"><div class="left more"><span class="a">More <small>&#9660;</small></span><div><a href="'.$ed->path.'60">Info</a></div></div><a href="'.$ed->path.'51">Logout</a></div>').'<br class="clear"/></div>';
+
 $stru= "<table><tr><th class='dot'>FIELD</th><th class='dot'>TYPE</th><th class='dot'>VALUE</th><th class='dot'>NULL</th><th class='dot'>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
@@ -419,19 +446,9 @@ default:
 case ""://show DBs
 	$ed->check();
 	echo $head.$ed->menu()."<div class='col1'>Create Database".$ed->form(2)."<input type='text' name='dbc' /><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>DATABASE</th><th>Tables</th><th>Actions</th></tr>";
-	$dbs= array();
-	$dh = @opendir($ed->dir);
-	while(($dbe = readdir($dh)) != false) {
-		if(is_file($ed->dir.$dbe) && strrchr($dbe,'.') == $ed->ext) {
-			$dbs[] = $dbe;
-		}
-	}
-	closedir($dh);
-	sort($dbs);
-	foreach($dbs as $db_) {
+	foreach($ed->listdb() as $db) {
 		$bg=($bg==1)?2:1;
-		list($db) = explode('.db3', $db_);
-		$dbx = new DBT($ed->dir.$db_);
+		$dbx = new DBT($ed->dir.$db.$ed->ext);
 		$qs_nr = $dbx->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' or type='view'", true)->fetch();
 		echo "<tr class='r c$bg'><td>".$db."</td><td>".$qs_nr."</td><td><a href='{$ed->path}31/$db'>Exp</a><a class='del' href='{$ed->path}4/$db'>Drop</a><a href='{$ed->path}5/$db'>Browse</a></td></tr>";
 		$dbx= NULL;
@@ -473,7 +490,7 @@ case "4"://delete db
 break;
 
 case "5"://show tables
-	$ed->check(array(1),array('db'=>$ed->sg[1]));
+	$ed->check(array(1));
 	$db = $ed->sg[1];
 	$all= $ed->con->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' OR type='view'", true)->fetch();
 	$totalpg= ceil($all/$step);
@@ -493,11 +510,11 @@ case "5"://show tables
 		$bg=($bg==1)?2:1;
 		$vl = "/$db/".$r_tabs[0];
 		if($r_tabs[1] == "view") {
-		$lnk = "40{$vl}/view";
+		$lnk = "40{$vl}/view"; $vdel= "49{$vl}/view";
 		} else {
-		$lnk = "10{$vl}";
+		$lnk = "10{$vl}"; $vdel= "26{$vl}";
 		}
-		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>".($r_tabs[1] == "view" ? $r_tabs[1] : $q_num)."</td><td><a href='{$ed->path}{$lnk}'>Structure</a><a class='del' href='{$ed->path}26/$db/".$r_tabs[0]."'>Drop</a><a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
+		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>".($r_tabs[1] == "view" ? $r_tabs[1] : $q_num)."</td><td><a href='{$ed->path}{$lnk}'>Structure</a><a class='del' href='{$ed->path}{$vdel}'>Drop</a><a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
 		}
 	}
 	echo "</table>";
@@ -515,7 +532,7 @@ case "5"://show tables
 break;
 
 case "6"://create table
-	$ed->check(array(1),array('db'=>$ed->sg[1]));
+	$ed->check(array(1));
 	$db= $ed->sg[1];
 	if($ed->post('ctab','!e') && !is_numeric(substr($ed->post('ctab'),0,1)) && $ed->post('nrf','!e') && $ed->post('nrf')>0 && is_numeric($ed->post('nrf'))) {
 	$q_ch= $ed->con->query("SELECT 1 FROM sqlite_master WHERE name='".$ed->sanitize($ed->post('ctab'))."'", true)->fetch();
@@ -549,7 +566,7 @@ case "6"://create table
 break;
 
 case "9":
-	$ed->check(array(1,2),array('db'=>$ed->sg[1],'noView'=>1));
+	$ed->check(array(1,2));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	if($ed->post('copytab','!e')) {//copy table
@@ -557,7 +574,7 @@ case "9":
 		$ncpy= basename($cpy,$ed->ext);
 		$q_tc = $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$tb'", true)->fetch();
 		$r_sql = preg_split("/\([^()]*\)(*SKIP)(*F)|[()]/", $q_tc, -1, PREG_SPLIT_NO_EMPTY);
-		$ed->con->exec("ATTACH DATABASE '".$ed->dir.$cpy."' AS ".$ncpy);
+		$ed->con->exec("ATTACH DATABASE '".$ed->dir.$cpy.$ed->ext."' AS ".$ncpy);
 		$q_cc= $ed->con->exec("SELECT 1 FROM {$ncpy}.{$tb}");
 		if($q_cc) $ed->redir("10/$db/$tb",array('err'=>"Table already exists"));
 		$ed->con->exec("CREATE TABLE {$ncpy}.{$tb} (".$r_sql[1].");");
@@ -575,14 +592,14 @@ case "9":
 		if($q_rvtab) {
 		foreach($q_rvtab as $r_rvtab) {
 		$repl= preg_replace("/\b(".$tb.")\b/i",$new,$r_rvtab[1]);
-		$ed->con->exec("UPDATE sqlite_master SET sql='".$repl."' WHERE name='".$r_rvtab[0]."'");
+		$ed->con->exec("UPDATE sqlite_master SET sql=\"".$repl."\" WHERE name='".$r_rvtab[0]."'");
 		}
 		}
 		$q_rvtig= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger'")->fetch(1);//rename tb name in triggers
 		if($q_rvtig) {
 		foreach($q_rvtig as $r_rvtig) {
 		$repl= preg_replace("/\b(".$tb.")\b/i",$new,$r_rvtig[1]);
-		$ed->con->exec("UPDATE sqlite_master SET sql='".$repl."' WHERE name='".$r_rvtig[0]."'");
+		$ed->con->exec("UPDATE sqlite_master SET sql=\"".$repl."\" WHERE name='".$r_rvtig[0]."'");
 		}
 		}
 		$ed->con->exec("PRAGMA writable_schema=0");
@@ -595,7 +612,7 @@ case "9":
 		if($ed->post('primary','i')) {
 			$q_pr = $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$tb'", true)->fetch();
 			preg_match('/(?<=\()(.+)(?=\))/ms', $q_pr, $r_prsql);
-			$spos= strpos($r_prsql[1],"PRIMARY KEY");
+			$spos= stripos($r_prsql[1],"PRIMARY KEY");
 			if($spos===false) {
 			$r_sql= $r_prsql[1];
 			} else {
@@ -606,7 +623,7 @@ case "9":
 			$ed->con->exec("CREATE INDEX pk_{$tb} ON $tb($idx)");
 			$ed->con->exec("PRAGMA writable_schema=1");
 			$ed->con->exec("UPDATE sqlite_master SET name='sqlite_autoindex_{$tb}_1',sql=null WHERE name='pk_{$tb}'");
-			$ed->con->exec("UPDATE sqlite_master SET sql='CREATE TABLE $tb(".$r_sql.", PRIMARY KEY($idx))' WHERE name='$tb'");
+			$ed->con->exec("UPDATE sqlite_master SET sql=\"CREATE TABLE $tb(".$r_sql.", PRIMARY KEY($idx))\" WHERE name='$tb'");
 			$ed->con->exec("COMMIT");
 			$ed->con->exec("PRAGMA writable_schema=0");
 		} elseif($ed->post('unique','i')) {
@@ -630,7 +647,7 @@ case "9":
 break;
 
 case "10"://structure
-	$ed->check(array(1,2),array('db'=>$ed->sg[1],'noView'=>1));
+	$ed->check(array(1,2));
 	$db = $ed->sg[1];
 	$tb = $ed->sg[2];
 	echo $head.$ed->menu($db,$tb,1);
@@ -653,25 +670,21 @@ case "10"://structure
 	echo "</table>";
 	$ed->con= null;
 	echo "<table class='c1'><tr><td>Rename Table<br/>".$ed->form("9/$db/$tb")."<input type='text' name='rtab' /><br/><button type='submit'>Rename</button></form><br/>Copy Table<br/>".$ed->form("9/$db/$tb")."<select name='copytab'>";
-	$dh = @opendir($ed->dir);
-	while(($dbe = readdir($dh)) != false) {
-		if(is_file($ed->dir.$dbe) && strrchr($dbe,'.') == $ed->ext) {
-			echo "<option value='{$dbe}'>".basename($dbe, $ed->ext)."</option>";
-		}
+	foreach($ed->listdb() as $dbl) {
+		echo "<option value='{$dbl}'>$dbl</option>";
 	}
-	closedir($dh);
 	echo "</select><br/><button type='submit'>Copy</button></form></td></tr></table>";
 break;
 
 case "11"://add field
-	$ed->check(array(1,2),array('db'=>$ed->sg[1],'redir'=>10,'noView'=>1));
+	$ed->check(array(1,2),array('redir'=>10));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	if($ed->post('add','i')) {
 		$f1= $ed->sanitize($ed->post('f1'));
 		if(!empty($f1)) {
 		$e= $ed->con->query("ALTER TABLE ".$tb." ADD COLUMN ".$f1." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')==1 ? " NOT NULL":"").($ed->post('f5')!='' ? " DEFAULT '".$ed->post('f5')."'":""));
-		} else $ed->redir("10/$db/$tb",array('err'=>"Empty field name"));
+		} else $ed->redir("11/$db/$tb",array('err'=>"Empty field name"));
 		$ed->con= null;
 		if($e) $ed->redir("10/$db/$tb",array('ok'=>"Successfully added"));
 		else $ed->redir("10/$db/$tb",array('err'=>"Can't add this field"));
@@ -683,12 +696,12 @@ case "11"://add field
 		<td><input type='text' name='f3' /></td>
 		<td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td>
 		<td><input type='text' name='f5' /></td></tr>
-		<tr><td class='c1' colspan='5'><button type='submit' name='add'>Add field</button></td></tr></table></form>";
+		<tr><td class='c1' colspan='5'><button type='submit' name='add'>Add</button></td></tr></table></form>";
 	}
 break;
 
 case "12"://change field structure
-	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>10,'noView'=>1));
+	$ed->check(array(1,2,3),array('redir'=>10));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$fn= $ed->sg[3];
@@ -699,10 +712,10 @@ case "12"://change field structure
 		if($e[1]==$fn){
 			$na1 = $ed->sanitize($ed->post("cf1"));
 			if(empty($na1) || is_numeric(substr($na1,0,1))) $ed->redir("10/$db/$tb",array('err'=>"Not a valid field name"));
-			$qr.= $na1." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf4')==1 ? " NOT NULL":"").($ed->post("cf5")!=''?" DEFAULT ".$ed->post("cf5"):"").",";
+			$qr.= $na1." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf4')==1 ? " NOT NULL":"").($ed->post("cf5","e")?"":" DEFAULT '".$ed->post("cf5")."'").",";
 			$pk.= ($e[5]==1 ? $na1.",":"");
 		} else {
-			$qr.= $e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " ".$e[4]:"").",";
+			$qr.= $e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " DEFAULT ".$e[4]:"").",";
 			$pk.= ($e[5]==1 ? $e[1].",":"");
 		}
 		}
@@ -711,23 +724,23 @@ case "12"://change field structure
 		$ed->con->exec("BEGIN TRANSACTION");
 		$ed->con->exec("PRAGMA writable_schema=1");
 		//rename field in table
-		$ed->con->exec("UPDATE sqlite_master SET sql='$qrs' WHERE name='$tb'");
+		$ed->con->exec("UPDATE sqlite_master SET sql=\"$qrs\" WHERE name=\"$tb\"");
 		//rename field in index
 		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='{$tb}'")->fetch(1);
 		foreach($q_idx as $r_idx) {
 		if($r_idx[1]) {
 		preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
 		$repl = preg_replace('/\b('.$fn.')\b/i', $na1, $r_prsql[2]);
-		$ed->con->exec("UPDATE sqlite_master SET sql='".$r_prsql[1].$repl.")' WHERE type='index' AND name='".$r_idx[0]."' AND tbl_name='{$tb}'");
+		$ed->con->exec("UPDATE sqlite_master SET sql=\"".$r_prsql[1].$repl.")\" WHERE type='index' AND name='".$r_idx[0]."' AND tbl_name='{$tb}'");
 		}
 		}
 		//rename field in views
 		$q_rvtab= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
 		if($q_rvtab) {
 			foreach($q_rvtab as $r_rvtab) {
-			if(strpos($r_rvtab[1]," ".$tb)!= false) {
+			if(stripos($r_rvtab[1]," ".$tb)!= false) {
 			$replv= preg_replace('/\b('.$fn.')\b/i',$na1,$r_rvtab[1]);
-			$ed->con->exec("UPDATE sqlite_master SET sql='".$replv."' WHERE name='".$r_rvtab[0]."'");
+			$ed->con->exec("UPDATE sqlite_master SET sql=\"$replv\" WHERE name='".$r_rvtab[0]."'");
 			}
 			}
 		}
@@ -736,7 +749,7 @@ case "12"://change field structure
 		if($q_rvtig) {
 		foreach($q_rvtig as $r_rvtig) {
 			$replt= preg_replace('/\b('.$fn.')\b/i',$na1,$r_rvtig[1]);
-			$ed->con->exec("UPDATE sqlite_master SET sql='".$replt."' WHERE name='".$r_rvtig[0]."'");
+			$ed->con->exec("UPDATE sqlite_master SET sql=\"$replt\" WHERE name='".$r_rvtig[0]."'");
 		}
 		}
 		$ed->con->exec("PRAGMA writable_schema=0");
@@ -760,43 +773,16 @@ case "12"://change field structure
 break;
 
 case "13"://drop column
-	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>10,'noView'=>1));
+	$ed->check(array(1,2,3),array('redir'=>10));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$fn= $ed->sg[3];
 	$q_nof= $ed->con->query("SELECT * FROM ".$tb);
 	$nof= $q_nof->num_col();
 	if($nof>1){
-		$f= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
-		$qr='';
-		foreach($f as $e) {
-		if($e[1]!=$fn){
-			$qr.= $e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " ".$e[4]:"").($e[5]==1 ? " PRIMARY KEY":"").",";
-		}
-		}
-		$qrs="CREATE TABLE $tb(".substr($qr,0,-1).")";
+		$obj=array();
 		$ed->con->exec("BEGIN TRANSACTION");
-		$ed->con->exec("PRAGMA writable_schema=1");
-		//remove field from index
-		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
-		if($q_idx) {
-		foreach($q_idx as $r_idx) {
-		if($r_idx[1]) {
-		preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
-		$repl= explode(',', $r_prsql[2]);
-		$po= array_search($fn, $repl);
-		unset($repl[$po]);
-		$repl= implode(',',$repl);
-		$ed->con->exec("UPDATE sqlite_master SET sql='".$r_prsql[1].$repl.")' WHERE type='index' AND name='".$r_idx[0]."' AND tbl_name='$tb'");
-		}
-		}
-		}
-		//drop field tb
-		$q_rtb= $ed->con->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='$tb'", true)->fetch();
-		if($q_rtb > 0) {
-			$ed->con->exec("UPDATE sqlite_master SET sql='$qrs' WHERE name='$tb'");
-		}
-		//drop field view
+		//drop field from view
 		$q_tbw= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(2);
 		if($q_tbw) {
 		foreach($q_tbw as $r_tbw) {
@@ -807,10 +793,51 @@ case "13"://drop column
 			}
 		}
 		}
-		$ed->con->exec("PRAGMA writable_schema=0");
+		//remove field from index
+		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
+		if($q_idx) {
+		foreach($q_idx as $r_idx) {
+			if($r_idx[1]) {
+			preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
+			$repl= explode(',', $r_prsql[2]);
+			if(count($repl) < 2 && $fn==$repl[0]) {
+			$ed->con->query("PRAGMA foreign_keys=OFF");
+			$ed->con->exec("DROP INDEX ".$r_idx[0]);
+			} else {
+			$po= array_search($fn, $repl);
+			unset($repl[$po]);
+			$repl= implode(',',$repl);
+			$obj[]= $r_prsql[1].$repl.")";
+			}
+			}
+		}
+		}
+		//all triggers
+		$q_trd = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
+		foreach($q_trd as $r_trd) {
+		$obj[] = $r_trd[0];
+		}
+		//prepare fields
+		$q_f= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
+		$qr=''; $re='';
+		foreach($q_f as $r_f) {
+		if($r_f[1]!=$fn){
+			$qr.= $r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").($r_f[5]==1 ? " PRIMARY KEY":"").",";
+			$re.= $r_f[1].",";
+		}
+		}
+		//drop field from table
+		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_{$tb}");
+		$ed->con->exec("CREATE TABLE $tb (".substr($qr,0,-1).")");
+		$ed->con->exec("INSERT INTO {$tb} SELECT ".substr($re,0,-1)." FROM temp_{$tb}");
+		$ed->con->exec("DROP TABLE temp_{$tb}");
+		foreach($obj as $ob) {
+			$ed->con->exec($ob);
+		}
+		unset($obj);
 		$ed->con->exec("COMMIT");
 		$ed->con= null;
-		$ed->redir("10/$db/$tb",array('ok'=>"Successfully deleted"));
+		$ed->redir("5/$db",array('ok'=>"Successfully deleted"));
 	} else {
 		$q_dv= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//drop view assoc with table
 		if($q_dv) {
@@ -827,7 +854,7 @@ case "13"://drop column
 break;
 
 case "20"://table browse
-	$ed->check(array(1,2),array('db'=>$ed->sg[1]));
+	$ed->check(array(1,2));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$where=(!empty($_SESSION['_litesearch_'.$db.'_'.$tb])?" ".$_SESSION['_litesearch_'.$db.'_'.$tb] : "");
@@ -845,26 +872,22 @@ case "20"://table browse
 	$r_rex= $q_rex->fetch(1);
 	$tbinfo= $ed->con->query("PRAGMA table_info($tb)");
 	$cols_name= $tbinfo->fetch(2);
-	echo $head;
 	$q_vws= $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
-	echo $ed->menu($db,($q_vws=='view'?'':$tb),1,($q_vws=='view'?array('view',$tb):''));
+	echo $head.$ed->menu($db,($q_vws=='view'?'':$tb),1,($q_vws=='view'?array('view',$tb):''));
 	echo "<table><tr>";
 	if($q_vws != 'view') echo "<th>ACTIONS</th>";
-	foreach($cols_name as $c_name) {
-	echo "<th>". $c_name['name']."</th>";
-	}
+	foreach($cols_name as $c_name) echo "<th>". $c_name['name']."</th>";
 	echo "</tr>";
 	$rinf= array();
 	$q_ti = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
-	foreach($q_ti as $r_ti) {
-		$rinf[$r_ti[0]]= $r_ti[2];
-	}
+	foreach($q_ti as $r_ti) $rinf[$r_ti[0]]= $r_ti[2];
 	foreach($r_rex as $row) {
 		$bg=($bg==1)?2:1;
 		$id=base64_encode($row[0]);
 		echo "<tr class='r c$bg'>";
 		if($q_vws != 'view') echo "<td><a href='{$ed->path}22/$db/$tb/".$cols_name[0]['name']."/".$id."'>Edit</a><a class='del' href='{$ed->path}23/$db/$tb/".$cols_name[0]['name']."/".$id."'>Delete</a></td>";
 		for($j=0;$j<$cols;$j++) {
+			$val= $ed->clean($row[$j]);
 			echo "<td class='dot'>";
 			if(stristr($rinf[$j],"blob") == true ) {
 			$le= strlen(base64_decode($row[$j]));
@@ -874,9 +897,9 @@ case "20"://table browse
 			} else {
 			echo number_format(($le/1024),2)." KB";
 			}
-			} elseif(strlen($row[$j]) > 200) {
-			echo substr(htmlentities($row[$j],ENT_QUOTES,"UTF-8"),0,200)."(...)";
-			} else echo htmlentities($row[$j],ENT_QUOTES,"UTF-8");
+			} elseif(strlen($val) > 100) {
+			echo substr($val,0,100)."(...)";
+			} else echo $val;
 			echo "</td>";
 		}
 		echo "</tr>";
@@ -886,7 +909,7 @@ case "20"://table browse
 break;
 
 case "21"://insert row
-	$ed->check(array(1,2),array('db'=>$ed->sg[1],'noView'=>1));
+	$ed->check(array(1,2));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$q_pra= $ed->con->query("PRAGMA table_info($tb)")->fetch(2);
@@ -895,7 +918,6 @@ case "21"://insert row
 		$qr4="VALUES(";
 		$i=0;
 		foreach($q_pra as $r_ra) {
-			if($ed->post('r'.$i,'e') && $r_ra['notnull'] != 0) $ed->redir("20/$db/$tb",array('err'=>"Field structure is NotNull"));
 			if(strtolower($r_ra['type'])=="boolean") {
 			$qr2.=$r_ra['name'].",";
 			$qr4.= "'".($ed->post('r'.$i,0) ? 1:'')."',";
@@ -906,7 +928,12 @@ case "21"://insert row
 			}
 			} else {
 			$qr2.=$r_ra['name'].",";
-			$qr4.="'".$ed->post('r'.$i,'',1)."',";
+			if($r_ra['pk']==1 && stripos($r_ra['type'],'INTEGER') && $ed->post('r'.$i,'e')) {
+			$max= $ed->con->query("SELECT max(".$q_pra[0]['name'].") FROM ".$tb, true)->fetch();
+			$qr4.=($max+1).",";
+			} else {
+			$qr4.= (($ed->post('r'.$i,'e') && $r_ra['notnull']== 0)? "NULL":"'".html_entity_decode($ed->post('r'.$i))."'").",";
+			}
 			}
 			++$i;
 		}
@@ -941,7 +968,7 @@ case "21"://insert row
 break;
 
 case "22"://edit row
-	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>20,'noView'=>1));
+	$ed->check(array(1,2,3),array('redir'=>20));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$nu= $ed->sg[3];
@@ -950,16 +977,16 @@ case "22"://edit row
 	if($ed->post('edit','i')) {
 		$qr="";
 		foreach($q_rd as $r_rd) {
-			if($ed->post('d'.$r_rd['name'],'e') && $r_rd['notnull'] != 0) $ed->redir("20/$db/$tb",array('err'=>"Field structure is NotNull"));
 			$stype= strtolower($r_rd['type']);
+			$f_rd= $r_rd['name'];
 			if($stype=="blob") {
-				if(!empty($_FILES['d'.$r_rd['name']]['tmp_name'])) {
-				$qr .= $r_rd['name']."='".base64_encode(file_get_contents($_FILES['d'.$r_rd['name']]['tmp_name']))."',";
+				if(!empty($_FILES['d'.$f_rd]['tmp_name'])) {
+				$qr .= $f_rd."='".base64_encode(file_get_contents($_FILES['d'.$f_rd]['tmp_name']))."',";
 				}
 			} elseif($stype=="boolean") {
-				$qr .= $r_rd['name']."='".($ed->post('d'.$r_rd['name'],0) ? 1:'')."',";
+				$qr .= $f_rd."='".($ed->post('d'.$f_rd,0) ? 1:'')."',";
 			} else {
-				$qr.= $r_rd['name']."='".$ed->post('d'.$r_rd['name'],'',1)."',";
+				$qr.= $f_rd."=".(($ed->post('d'.$f_rd,'e') && $r_rd['notnull']== 0)? "NULL":"'".html_entity_decode($ed->post('d'.$f_rd))."'").",";
 			}
 		}
 		$qq=substr($qr,0,-1);
@@ -988,12 +1015,12 @@ case "22"://edit row
 			}
 			echo "</td></tr>";
 		}
-		echo "<tr><td class='c1' colspan='2'><button type='submit' name='edit'>Update</button></td></tr></table></form>";
+		echo "<tr class='c1'><td><a class='del link' href='".$ed->path."23/$db/$tb/$nu/".$ed->sg[4]."'>Delete</a></td><td><button type='submit' name='edit'>Update</button></td></tr></table></form>";
 	}
 break;
 
 case "23"://delete row
-	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>20,'noView'=>1));
+	$ed->check(array(1,2,3),array('redir'=>20));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$exec_dr= $ed->con->query("DELETE FROM ".$tb." WHERE ".$ed->sg[3]."='".base64_decode($ed->sg[4])."'");
@@ -1002,7 +1029,7 @@ case "23"://delete row
 break;
 
 case "24"://search
-	$ed->check(array(1,2),array('db'=>$ed->sg[1]));
+	$ed->check(array(1,2));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	unset($_SESSION['_litesearch_'.$db.'_'.$tb]);
@@ -1051,7 +1078,7 @@ case "24"://search
 break;
 
 case "25"://table empty
-	$ed->check(array(1,2),array('db'=>$ed->sg[1],'noView'=>1));
+	$ed->check(array(1,2));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$ed->con->exec("DELETE FROM ".$tb);
@@ -1059,12 +1086,11 @@ case "25"://table empty
 	$ed->redir("5/$db",array('ok'=>"Table is empty"));
 break;
 
-case "26"://drop table, view
-	$ed->check(array(1,2),array('db'=>$ed->sg[1]));
+case "26"://drop table
+	$ed->check(array(1,2));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$ed->con->exec("BEGIN TRANSACTION");
-	$rs= $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
 	$q_dv= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//drop view assoc with table
 	if($q_dv) {
 	foreach($q_dv as $r_dv) {
@@ -1074,7 +1100,7 @@ case "26"://drop table, view
 	}
 	}
 	}
-	$ed->con->exec("DROP ".$rs." ".$tb);
+	$ed->con->exec("DROP TABLE ".$tb);
 	$ed->con->exec("COMMIT");
 	$ed->con->exec("VACUUM");
 	$ed->con= null;
@@ -1082,7 +1108,7 @@ case "26"://drop table, view
 break;
 
 case "27"://vacuum, analyze
-	$ed->check(array(1,2),array('db'=>$ed->sg[1],'noView'=>1));
+	$ed->check(array(1,2));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$op= $ed->sg[3];
@@ -1095,7 +1121,7 @@ case "27"://vacuum, analyze
 break;
 
 case "30"://import
-	$ed->check(array(1),array('db'=>$ed->sg[1]));
+	$ed->check(array(1));
 	$db= $ed->sg[1];
 	$out="";
 	$q=0;
@@ -1112,7 +1138,7 @@ case "30"://import
 			$file= pathinfo($_FILES['importfile']['name']);
 			$fext = strtolower($file['extension']);
 			if($fext == 'sql') {//sql file
-				$fi = $ed->clean(file_get_contents($tmp),1);
+				$fi = file_get_contents($tmp);
 				$e= preg_split($rgex, $fi, -1, PREG_SPLIT_NO_EMPTY);
 			} elseif($fext == 'csv') {//csv file
 				$e= $ed->imp_csv($file['filename'], $tmp);
@@ -1190,7 +1216,7 @@ case "30"://import
 				$e_exc= $ed->con->err();
 				$out .= "<p>";
 				$fa="<b>FAILED!</b> ";
-				if($_SESSION['litetype'] == DBT::$litetype[0]) {
+				if(extension_loaded(DBT::$litetype[0])) {
 					if($exc && !$e_exc) ++$q;
 					else $out .= $fa.$qry;
 				} else {
@@ -1207,7 +1233,7 @@ case "30"://import
 break;
 
 case "31"://export form
-	$ed->check(array(1),array('db'=>$ed->sg[1]));
+	$ed->check(array(1));
 	$db= $ed->sg[1];
 	$q_extbs= $ed->con->query("SELECT name FROM sqlite_master WHERE type='table' OR type='view'")->fetch(1);
 	$deny= array('sqlite_sequence');
@@ -1248,7 +1274,7 @@ case "31"://export form
 break;
 
 case "32"://export
-	$ed->check(array(1),array('db'=>$ed->sg[1]));
+	$ed->check(array(1));
 	$db= $ed->sg[1];
 	$tbs= array();
 	$vws= array();
@@ -1288,7 +1314,7 @@ case "32"://export
 				$cidx= $q_tidx->num_col();
 				if($cidx > 0) {
 					foreach($q_tidx->fetch(1) as $r_ix) {
-					$val.= "\n".$r_ix[0].";";
+					if($r_ix[0]) $val.= "\n".$r_ix[0].";";
 					}
 					$val.="\n";
 				}
@@ -1338,7 +1364,7 @@ case "32"://export
 		$cols= $ed->con->query("PRAGMA table_info(".$tbs[0].")")->fetch(2);
 		for($i=0;$i < $ncol;++$i) {
 			$sql.='"'.$cols[$i]['name'].'",';
-		}		
+		}
 		$sql=substr($sql,0,-1)."\n";
 		foreach($q_csv as $r_rs) {
 			for($t=0;$t<$ncol;$t++) $sql.="\"".str_replace('"','""',$r_rs[$t])."\",";
@@ -1413,7 +1439,7 @@ case "32"://export
 break;
 
 case "33": //blob download
-	$ed->check(array(1,2,3),array('db'=>$ed->sg[1],'redir'=>20));
+	$ed->check(array(1,2,3),array('redir'=>20));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$nu= $ed->sg[3];
@@ -1438,7 +1464,7 @@ break;
 
 case "40"://view
 	if(!isset($ed->sg[2]) && !isset($ed->sg[3])) {//add
-		$ed->check(array(1),array('db'=>$ed->sg[1]));
+		$ed->check(array(1));
 		$db= $ed->sg[1];
 		$r_uv= array(1=>'',2=>'');
 		if($ed->post('uv1','!e') && $ed->post('uv2','!e')) {
@@ -1457,7 +1483,7 @@ case "40"://view
 		echo $ed->form("40/$db");
 		$b_lbl="Create";
 	} else {//edit
-		$ed->check(array(1,5),array('db'=>$ed->sg[1]));
+		$ed->check(array(1,5));
 		$db= $ed->sg[1];$sp= $ed->sg[2];$ty= $ed->sg[3];
 		$q_uv = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='$ty' AND name='$sp'", true)->fetch();
 		preg_match('/CREATE\sVIEW\s(.*)\s+AS\s+(.*)$/i', $q_uv, $r_uv);
@@ -1484,9 +1510,9 @@ case "40"://view
 break;
 
 case "41"://trigger
-	$ed->check(array(1),array('db'=>$ed->sg[1]));
-	$db= $ed->sg[1];
 	if(!isset($ed->sg[2]) && !isset($ed->sg[3])) {//add
+		$ed->check(array(1));
+		$db= $ed->sg[1];
 		$r_tge= array(1=>'',2=>'',3=>'',4=>'',5=>'');
 		if($ed->post('utg1','!e') && $ed->post('utg5','!e')) {
 		$t_nm= $ed->sanitize($ed->post('utg1'));
@@ -1499,8 +1525,8 @@ case "41"://trigger
 		echo $ed->form("41/$db");
 		$t_lbl="Create";
 	} else {//edit
-		$ed->check(array(1,5),array('db'=>$ed->sg[1]));
-		$sp= $ed->sg[2];$ty= $ed->sg[3];
+		$ed->check(array(1,5));
+		$db= $ed->sg[1];$sp= $ed->sg[2];$ty= $ed->sg[3];
 		if($ed->post('utg1','!e') && $ed->post('utg5','!e')) {
 			$utg1= $ed->sanitize($ed->post('utg1'));
 			$utg2= $ed->post('utg2');$utg3= $ed->post('utg3');$utg4= $ed->post('utg4');$utg5= $ed->post('utg5','',1);
@@ -1520,15 +1546,15 @@ case "41"://trigger
 		echo $ed->form("41/$db/$sp/$ty");
 		$t_lbl="Edit";
 	}
-	$tgtb= array();
-	$q_ttbs = $ed->con->query("SELECT name FROM sqlite_master WHERE type='table'")->fetch(1);
-	foreach($q_ttbs as $r_ttbs) {
-		if(!in_array($r_ttbs[0],$deny)) $tgtb[] = $r_ttbs[0];
-	}
+
 	echo "<table><tr><th colspan='2'>$t_lbl Trigger</th></tr>
 	<tr><td>Trigger Name</td><td><input type='text' name='utg1' value='".$r_tge[1]."'/></td></tr>
 	<tr><td>Table</td><td><select name='utg4'>";
-	foreach($tgtb as $tgt) echo "<option value='".$tgt."'".($r_tge[4]==$tgt ? " selected":"").">".$tgt."</option>";
+	$q_tbs= $ed->con->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")->fetch(1);
+	foreach($q_tbs as $tgt) {
+	$tgt= $tgt[0];
+	if(!in_array($tgt,$deny)) echo "<option value='".$tgt."'".($r_tge[4]==$tgt ? " selected":"").">".$tgt."</option>";
+	}
 	echo "</select></td></tr><tr><td>Time</td><td><select name='utg2'>";
 	$tm= array('BEFORE','AFTER');
 	foreach($tm as $tn) echo "<option value='$tn'".($r_tge[2]==$tn?" selected":"").">$tn</option>";
@@ -1540,26 +1566,20 @@ case "41"://trigger
 	<tr><td class='c1' colspan='2'><button type='submit'>Update</button></td></tr></table></form>";
 break;
 
-case "49"://drop trigger
-	$ed->check(array(1,5),array('db'=>$ed->sg[1]));
+case "49"://drop view,trigger
+	$ed->check(array(1,5));
 	$ed->con->exec("DROP ".$ed->sg[3]." ".$ed->sg[2]);
 	$ed->redir('5/'.$ed->sg[1],array('ok'=>"Successfully dropped"));
 break;
 
 case "50": //login
-	if($ed->post('password','i') && $ed->post('litetype','!e')) {
-		$_SESSION['litetype']= $ed->post('litetype');
+	if($ed->post('password','i')) {
 		$_SESSION['ltoken']= base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$ed->post('password')));
 		$ed->redir();
 	}
 	session_unset();
 	session_destroy();
 	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3>
-	<div>Connect with:<br/><select name='litetype'>";
-	foreach(DBT::$litetype as $cotyp) {
-	if(extension_loaded($cotyp)) echo "<option value='".$cotyp."'>".$cotyp."</option>";
-	}
-	echo "</select></div>
 	<div>Password<br/><input type='password' id='passwd' name='password' /></div>
 	<div><button type='submit'>Login</button></div></div></form>";
 break;
@@ -1573,19 +1593,21 @@ break;
 
 case "60": //info
 	$ed->check();
-	echo $head.$ed->menu(1,'',2)."<table><tr><th>VARIABLE</th><th>VALUE</th></tr>";
-	if($_SESSION['litetype'] == DBT::$litetype[0]) {
+	echo $head.$ed->menu(1,'',2)."<table><tr><th colspan='2'>INFO</th></tr>";
+	$lty= DBT::$litetype[0];
+	if(extension_loaded($lty)) {
 		$v=SQLite3::version();
 		$vv= $v['versionString'];
 	} else {
 		$dbv= new PDO('sqlite::memory:');
 		$vv= $dbv->getAttribute(PDO::ATTR_SERVER_VERSION);
-		unset($dbv);	 
+		unset($dbv);
+		$lty= DBT::$litetype[1];
 	}
 	$v1= @file_get_contents("https://raw.githubusercontent.com/edmondsql/edmondsql.github.io/master/lite.txt");
 	if($v1 === FALSE) $v2='(offline)';
 	else $v2='<a href="https://github.com/edmondsql/edliteadmin/archive/'.trim($v1).'.zip">'.$v1.'</a>';
-	$q_var= array('Latest version'=>$v2,'Connected with'=>$_SESSION['litetype'],'SQLite'=>$vv,'PHP'=>PHP_VERSION);
+	$q_var= array('Latest version'=>$v2,'Use extension'=>$lty,'SQLite'=>$vv,'PHP'=>PHP_VERSION,'Software'=>$_SERVER['SERVER_SOFTWARE']);
 	foreach($q_var as $r_k=>$r_var) {
 	$bg=($bg==1)?2:1;
 	echo "<tr class='r c$bg'><td class='dot'>".$r_k."</td><td class='dot'>".$r_var."</td></tr>";
