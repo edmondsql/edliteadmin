@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.5";
+$version="3.6";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -130,6 +130,12 @@ class ED {
 	public function sanitize($el) {
 		return preg_replace(array('/[^A-Za-z0-9]/'),'_',trim($el));
 	}
+	public function utf($fi) {
+		if(function_exists("iconv") && preg_match("~^\xFE\xFF|^\xFF\xFE~",$fi)) {
+		$fi=iconv("utf-16","utf-8",$fi);
+		}
+		return $fi;
+	}
 	public function form($furl, $enc='') {
 		return "<form action='".$this->path.$furl."' method='post'".($enc==1 ? " enctype='multipart/form-data'":"").">";
 	}
@@ -180,7 +186,7 @@ class ED {
 		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>Databases</a></li>";
 		if($db!='' && $db!=1) $str .= "<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
 
-		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
+		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
 		$str .=($db==""?"":"</ul><br class='clear'/></div>");
 
 		if($db!="" && $db!=1) $str .="<div class='l3'>&nbsp;Database: <b>$db</b>".($tb==""?"":" Table: <b>$tb</b>".$srch).(count($sp) >1 ?" ".$sp[0].": <b>".$sp[1]."</b>":"")."</div>";
@@ -193,11 +199,11 @@ class ED {
 		++$f;
 		}
 		if($left==1) $str .= "<div class='col1'><h3>SQL Query</h3>
-		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>DO</button></form>
-		<h3>Import sql, csv, gz, zip, ".substr($this->ext,1)."</h3>".$this->form("30/$db",1)."<input type='file' name='importfile' />
+		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
+		<h3>Import</h3><small>sql, csv, json, gz, zip, ".substr($this->ext,1)."</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
 		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
-		<h3>Create Table</h3>".$this->form("6/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>CREATE</button></form>
-		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>RENAME</button></form>
+		<h3>Create Table</h3>".$this->form("6/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
+		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
 		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
 		return $str;
 	}
@@ -263,40 +269,45 @@ class ED {
 	public function imp_csv($fname, $fbody) {
 		$exist= $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$fname."' AND type='table'", true)->fetch();
 		if(!$exist) $this->redir("5/".$this->sg[1],array('err'=>"Table not exist"));
+		$fname= $this->sanitize($fname);
 		$e= array();
-		if(is_file($fbody)) {
-			$handle = fopen("$fbody","rb");
-			$data = fgetcsv($handle, 0, ",");
-			if(empty($data)) $this->redir('5/'.$this->sg[1]);
-			$fd = '';
-			for($h=0;$h<count($data);$h++) {
-				$fd .= $this->clean($data[$h]).',';
-			}
-			$fdx = "(".substr($fd,0,-1).")";
-			while(($data = fgetcsv($handle, 0, ",")) !== FALSE) {
-				$num = count($data);
-				if($num < 1) $this->redir('5/'.$this->sg[1]);
-				$import="INSERT INTO ".$fname.$fdx." VALUES(";
-				for ($c=0; $c < $num; ++$c) {
-					$import.="'".$this->clean($data[$c])."',";
-				}
-				$e[] = substr($import,0,-1).");";
-			}
-			fclose($handle);
-		} else {
-			$data= array();
-			foreach(preg_split("/((\r?\n)|(\r\n?))/", $fbody) as $line){
-			$data[] = $line;
-			}
-			$i=1;
-			$co= count($data);
-			if($co < 1) $this->redir("5/".$this->sg[1],array('err'=>"No data"));
-			while($i < $co) {
-			if(!empty($data[$i])) $e[] = "INSERT INTO ".$fname."(".str_replace('"','',$data[0]).") VALUES(".$data[$i].");";
+		if(@is_file($fbody)) $fbody= file_get_contents($fbody);
+		$fbody= $this->utf($fbody);
+		$fbody= preg_replace('/^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE/','', $fbody);
+		$lines= array();
+		foreach(preg_split("/((\r?\n)|(\r\n?))/", $fbody) as $line) {
+		if(trim($line)!='') $lines[] = $line;
+		}
+		preg_match("/\"[\"]?+\"|[;,]/", $lines[0], $mark);
+		$i=1;
+		while($i < count($lines)) {
+			$e1='';
+			$li=array();
+			foreach(str_getcsv($lines[$i],$mark[0]) as $lin) $li[] = preg_replace("/^\"*|\"*$/u", "", $lin);
+			$e1.="INSERT INTO ".$fname."(".implode(',',str_getcsv($lines[0],$mark[0])).") VALUES(";
+			foreach($li as $l) $e1 .= (is_numeric($l)?$l:"'".htmlspecialchars($l)."'").',';
+			$e[]= substr($e1,0,-1).");";
 			++$i;
-			}
 		}
 		if(empty($e)) $this->redir("5/".$this->sg[1],array('err'=>"Query failed"));
+		return $e;
+	}
+	public function imp_json($fname, $fbody) {
+		$exist= $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$fname."' AND type='table'", true)->fetch();
+		if(!$exist) $this->redir("5/".$this->sg[1],array('err'=>"Table not exist"));
+		$e= array();
+		if(@is_file($fbody)) $fbody= file_get_contents($fbody);
+		$fbody= $this->utf($fbody);
+		$rgxj ="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\/\/).*\n*|(\/\*)*.*(\*\/)\n*|((\"*.*\")*('*.*'))(*SKIP)(*F)~";
+		$ex= preg_split($rgxj, $fbody, -1, PREG_SPLIT_NO_EMPTY);
+		$lines= json_decode($ex[0], true);
+		$jr='';
+		foreach($lines[0] as $k=>$li) $jr.=$k.",";
+		foreach($lines as $line) {
+		$jv='';
+		foreach($line as $ky=>$el) $jv.=(is_numeric($el)?$el:"'".$el."'").",";
+		$e[]="INSERT INTO ".$fname." (".substr($jr,0,-1).") VALUES (".substr($jv,0,-1).")";
+		}
 		return $e;
 	}
 	public function imp_sqlite($fname, $fbody) {
@@ -323,7 +334,7 @@ class ED {
 		$dh = @opendir($this->dir);
 		while(($dbe = readdir($dh)) != false) {
 			preg_match("/(\\".$this->ext.")$/i",$dbe,$dbext);
-			if(is_file($this->dir.$dbe) && end($dbext) == $this->ext) {
+			if(@is_file($this->dir.$dbe) && end($dbext) == $this->ext) {
 				$dbs[] = basename($dbe, $this->ext);
 			}
 		}
@@ -416,25 +427,20 @@ if(e.which==27 || e.which==78) $(".msg").remove();
 $(".msg").dblclick(function(){$(this).hide()});
 $(".more").hover(function(){$(".more div").fadeIn();},function(){$(".more div").fadeOut(100);});
 });
-function selectall(lb, cb) {
-var cb=document.getElementById(cb);
+function selectall(cb,lb) {
+var multi=document.getElementById(lb);
 if(cb.checked) {
-var multi=document.getElementById(lb);
-for(var i=0;i<multi.options.length;i++) {
-multi.options[i].selected=true;
-}
+for(var i=0;i<multi.options.length;i++) multi.options[i].selected=true;
 }else{
-var multi=document.getElementById(lb);
 multi.selectedIndex=-1;
 }
 }
 function toggle(cb, el){
 var cbox=document.getElementsByName(el);
-for(var i=0;i<cbox.length;i++){
-cbox[i].checked = cb.checked;
-}}
+for(var i=0;i<cbox.length;i++) cbox[i].checked = cb.checked;
+}
 </script>
-</head><body><noscript><h1 class="msg err">Please, activate javascript in browser!</h1></noscript>
+</head><body><noscript><h1 class="msg err">Please activate Javascript in your browser!</h1></noscript>
 <div class="l1"><div class="left"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b></div>'.
 (isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="right"><div class="left more"><span class="a">More <small>&#9660;</small></span><div><a href="'.$ed->path.'60">Info</a></div></div><a href="'.$ed->path.'51">Logout</a></div>').'<br class="clear"/></div>';
 
@@ -460,9 +466,9 @@ case "2"://create db
 	$ed->check();
 	if($ed->post('dbc','!e')) {
 	$db = $ed->sanitize($ed->post('dbc'));
-	if(is_file($ed->dir.$db.$ed->ext)) $ed->redir("",array('err'=>"DB already exist"));
+	if(@is_file($ed->dir.$db.$ed->ext)) $ed->redir("",array('err'=>"DB already exist"));
 	$ed->con = DBT::factory($ed->dir.$db.$ed->ext);
-	if(is_file($ed->dir.$db.$ed->ext)) $ed->redir("",array('ok'=>"Created DB"));
+	if(@is_file($ed->dir.$db.$ed->ext)) $ed->redir("",array('ok'=>"Created DB"));
 	else $ed->redir("",array('err'=>"Create DB failed"));
 	}
 	$ed->redir("",array('err'=>"DB name must not be empty"));
@@ -481,7 +487,7 @@ break;
 case "4"://delete db
 	$ed->check(array(1));
 	$db = $ed->sg[1];
-	if(is_file($ed->dir.$db.$ed->ext)) {
+	if(@is_file($ed->dir.$db.$ed->ext)) {
 	$fl= $ed->dir.$db.$ed->ext;
 	chmod($fl, 0664);
 	@unlink($fl);
@@ -1126,7 +1132,7 @@ case "30"://import
 	$out="";
 	$q=0;
 	set_time_limit(0);
-	$rgex = "~^\xEF\xBB\xBF|(\#|--).*|(\/\*).*(\*\/)|(?-m)\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~m";
+	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|(?-m)\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~m";
 	if($ed->post('qtxt','!e')) {//in textarea
 		$e= preg_split($rgex, $ed->post('qtxt','',1), -1, PREG_SPLIT_NO_EMPTY);
 	} elseif($ed->post('send','i') && $ed->post('send') == "ja") {//from file
@@ -1138,10 +1144,12 @@ case "30"://import
 			$file= pathinfo($_FILES['importfile']['name']);
 			$fext = strtolower($file['extension']);
 			if($fext == 'sql') {//sql file
-				$fi = file_get_contents($tmp);
+				$fi= $ed->utf(file_get_contents($tmp));
 				$e= preg_split($rgex, $fi, -1, PREG_SPLIT_NO_EMPTY);
 			} elseif($fext == 'csv') {//csv file
 				$e= $ed->imp_csv($file['filename'], $tmp);
+			} elseif($fext == 'json') {//json file
+				$e= $ed->imp_json($file['filename'], $tmp);
 			} elseif($fext == 'sqlite' || $fext == substr($ed->ext,1)) {//sqlite file
 				$ed->imp_sqlite($file['filename'], $tmp);
 			} elseif($fext == 'gz') {//gz file
@@ -1156,15 +1164,16 @@ case "30"://import
 					if (!$gzfile) {
 					$ed->redir("5/$db",array('err'=>"Can't open GZ file"));
 					}
-					$e = '';
+					$e='';
 					while (!gzeof($gzfile)) {
 					$e .= gzgetc($gzfile);
 					}
 					gzclose($gzfile);
 					$entr= pathinfo($file['filename']);
 					$e_ext= $entr['extension'];
-					if($e_ext == 'sql') $e= preg_split($rgex, $e, -1, PREG_SPLIT_NO_EMPTY);
+					if($e_ext == 'sql') $e= preg_split($rgex, $ed->utf($e), -1, PREG_SPLIT_NO_EMPTY);
 					elseif($e_ext == 'csv') $e= $ed->imp_csv($entr['filename'], $e);
+					elseif($e_ext == 'json') $e= $ed->imp_json($entr['filename'], $e);
 					elseif($e_ext == 'sqlite' || $e_ext == substr($ed->ext,1)) $ed->imp_sqlite($file['filename'], $e);
 					else $ed->redir("5/$db",array('err'=>"Disallowed extension"));
 				} else {
@@ -1177,24 +1186,23 @@ case "30"://import
 					}
 					fclose($fzip);
 				}
+				$e='';
 				$zip = zip_open($tmp);
 				if(is_resource($zip)) {
-					$buf = '';
-					while($zip_entry = zip_read($zip)) {
-					if($file['filename'] == zip_entry_name($zip_entry)) {
+					$zip_entry = zip_read($zip);
 					if(zip_entry_open($zip, $zip_entry, "rb")) {
-					$buf .= zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
+					$zentry= zip_entry_name($zip_entry);
+					if($file['filename']==$zentry) {
+					$buf= zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
+					preg_match("/^(.*)\.(sql|csv|json)$/i",$zentry,$zn);
+					if(!empty($zn[2]) && $zn[2]=='sql') $e= preg_split($rgex, $ed->utf($buf), -1, PREG_SPLIT_NO_EMPTY);
+					elseif(!empty($zn[2]) && $zn[2]=='csv') $e= $ed->imp_csv($zn[1], $buf);
+					elseif(!empty($zn[2]) && $zn[2]=='json') $e= $ed->imp_json($zn[1], $buf);
+					else $ed->redir("5/$db",array('err'=>"Disallowed extension"));
 					zip_entry_close($zip_entry);
 					}
 					}
-					}
 					zip_close($zip);
-					$entr= pathinfo($file['filename']);
-					$e_ext= $entr['extension'];
-					if($e_ext == 'sql') $e= preg_split($rgex, $buf, -1, PREG_SPLIT_NO_EMPTY);
-					elseif($e_ext == 'csv') $e= $ed->imp_csv($entr['filename'], $buf);
-					elseif($e_ext == 'sqlite' || $e_ext == substr($ed->ext,1)) $ed->imp_sqlite($file['filename'], $buf);
-					else $ed->redir("5/$db",array('err'=>"Disallowed extension"));
 				}
 			} else {
 				$ed->redir("5/$db",array('err'=>"Disallowed extension"));
@@ -1247,18 +1255,18 @@ case "31"://export form
 	if($ex > 0) {
 	echo $head.$ed->menu($db,'',2);
 	echo $ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
-	<p><input type='checkbox' onclick='selectall(\"tables\",\"sel\")' id='sel' /> Select/Deselect</p>
+	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> Select/Deselect</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>".$tts."</option>";
 	}
 	echo "</select></div><div><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
-	$opts = array('structure'=>'Structure','data'=>'Data','drop'=>'Drop','trigger'=>'Trigger');
+	$opts = array('structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','trigger'=>'Triggers');
 	foreach($opts as $k => $opt) {
 	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' onclick="opt()" checked':'')." /> ".$opt."</p>";
 	}
 	echo "</div><div><h3>File format</h3>";
-	$ffo = array('sql'=>'SQL','csv'=>'CSV','sqlite'=>'SQLite');
+	$ffo = array('sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word 2000','sqlite'=>'SQLite');
 	foreach($ffo as $k => $ff) {
 	echo "<p><input type='radio' name='ffmt[]' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
 	}
@@ -1278,9 +1286,9 @@ case "32"://export
 	$db= $ed->sg[1];
 	$tbs= array();
 	$vws= array();
-	$sql='';
+	$ftype= $ed->post('ftype');
 	$ffmt= $ed->post('ffmt');
-	if(!in_array('sqlite',$ffmt)) {
+	if($ffmt[0]!='sqlite') {
 	if($ed->post('tables') =='') {
 		$ed->redir("31/".$db,array('err'=>"You didn't select any table"));
 	} else {//selected tables
@@ -1300,8 +1308,9 @@ case "32"://export
 		$fopt=$ed->post('fopt');
 	}
 	}
-	if(in_array('sql',$ffmt)) {//data sql format
-		$sql.="-- EdLiteAdmin SQL Dump\n-- version ".$version."\n\n";
+	if($ffmt[0]=='sql') {//data sql format
+		$ffty= "text/plain"; $ffext= ".sql"; $fname= $db.$ffext;
+		$sql="-- EdLiteAdmin SQL Dump\n-- version ".$version."\n\n-- ".date('Y-m-d H:i:s')."\n\n";
 		if(!empty($fopt)) {
 			foreach($tbs as $ttd) {
 			$val="";
@@ -1355,55 +1364,149 @@ case "32"://export
 			}
 			}
 		}
-	} elseif(in_array('csv',$ffmt)) {//csv format
+	} elseif($ffmt[0]=='csv1' || $ffmt[0]=='csv2') {//csv format
 		$tbs= array_merge($tbs, $vws);
+		$ffty= "text/csv"; $ffext= ".csv"; $fname= $db.$ffext;
+		$sql= array();
+		if(count($tbs)==1) {
+			$tbs= array($tbs[0]);
+			$fname= $tbs[0].$ffext;
+		}
+		$sign=($ffmt[0]=='csv1'?',':';');
 		if(empty($tbs[0])) $ed->redir("31/".$db,array('err'=>"Select a table/view"));
-		$q_csvs= $ed->con->query("SELECT * FROM ".$tbs[0]);
-		$q_csv= $q_csvs->fetch(1);
-		$ncol= $q_csvs->num_col();
-		$cols= $ed->con->query("PRAGMA table_info(".$tbs[0].")")->fetch(2);
-		for($i=0;$i < $ncol;++$i) {
-			$sql.='"'.$cols[$i]['name'].'",';
+		foreach($tbs as $tb) {
+			$sq='';
+			$q_csvs= $ed->con->query("SELECT * FROM ".$tb);
+			$q_csv= $q_csvs->fetch(1);
+			$ncol= $q_csvs->num_col();
+			$cols= $ed->con->query("PRAGMA table_info(".$tb.")")->fetch(2);
+			for($i=0;$i < $ncol;++$i) $sq.= $cols[$i]['name'].$sign;
+			$sq=substr($sq,0,-1)."\n";
+			foreach($q_csv as $r_rs) {
+				for($t=0;$t<$ncol;$t++) $sq.= (is_numeric($r_rs[$t]) ? $r_rs[$t]:"\"".str_replace('"','""',$r_rs[$t])."\"").$sign;
+				$sq=substr($sq,0,-1)."\n";
+			}
+			$sql[$tb.$ffext]= $sq;
 		}
-		$sql=substr($sql,0,-1)."\n";
-		foreach($q_csv as $r_rs) {
-			for($t=0;$t<$ncol;$t++) $sql.="\"".str_replace('"','""',$r_rs[$t])."\",";
-			$sql=substr($sql,0,-1)."\n";
+		if(count($tbs)==1) $sql= $sql[$fname];
+	} elseif($ffmt[0]=='json') {//json format
+		$tbs= array_merge($tbs, $vws);
+		$ffty= "text/json"; $ffext= ".json"; $fname= $db.$ffext;
+		$sql= array();
+		if(count($tbs)==1) {
+			$tbs= array($tbs[0]);
+			$fname= $tbs[0].$ffext;
 		}
-		$sql.="\n";
-	} elseif(in_array('sqlite',$ffmt)) {//sqlite format
-		$sql .= file_get_contents($ed->dir.$db.$ed->ext);
+		foreach($tbs as $tb) {
+			$sq="// EdLiteAdmin JSON Dump\n// version ".$version."\n\n// ".date('Y-m-d H:i:s')."\n\n";
+			$q_jso=$ed->con->query("SELECT * FROM ".$tb)->fetch(2);
+			if(count($q_jso) > 0) {
+			$sq.= '[';
+			foreach($q_jso as $k_jso=>$r_jso) {
+			$jh= '{';
+			foreach($r_jso as $k_jo=>$r_jo) $jh.= '"'.$k_jo.'":'.(is_numeric($r_jo)?$r_jo:'"'.htmlspecialchars($r_jo).'"').',';
+			$sq.= substr($jh,0,-1).'},';
+			}
+			$sq= substr($sq,0,-1).']';
+			}
+			$sql[$tb.$ffext]= $sq;
+		}
+		if(count($tbs)==1) $sql= $sql[$fname];
+	} elseif($ffmt[0]=='doc') {//doc format
+		$tbs= array_merge($tbs, $vws);
+		$ffty= "application/msword"; $ffext= ".doc"; $fname=$db.$ffext;
+		$sql ='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:word" 	xmlns="http://www.w3.org/TR/REC-html40"><!DOCTYPE html><html><head><meta http-equiv="Content-type" content="text/html;charset=utf-8"></head><body>';
+		foreach($tbs as $tb) {
+		$q_doc = $ed->con->query("PRAGMA table_info(".$tb.")")->fetch(2);
+		if(in_array('structure',$fopt)) {
+			$wh ='<table border=1 cellpadding=0 cellspacing=0 style="border-collapse: collapse"><tr bgcolor="#eeeeee">';
+			foreach($q_doc[0] as $r_k=>$r_doc) $wh .='<th>'.$r_k.'</th>';
+			$wh .='</tr>';
+			foreach($q_doc as $r_doc) {
+				$wh .='<tr>';
+				foreach($r_doc as $r_d1) $wh .='<td>'.$r_d1.'</td>';
+				$wh .='</tr>';
+			}
+			$wh .='</table><br>';
+		}
+		if(in_array('data',$fopt)) {
+			$wb ='<table border=1 cellpadding=0 cellspacing=0 style="border-collapse: collapse"><tr>';
+			foreach($q_doc as $r_dc) $wb .= '<th>'.$r_dc['name'].'</th>';
+			$wb .= "</tr>";
+			$q_dc2 = $ed->con->query("SELECT * FROM ".$tb)->fetch(1);
+			foreach($q_dc2 as $r_dc2) {
+			$wb .= "<tr>";
+			foreach($r_dc2 as $r_d2) $wb .='<td>'.$r_d2.'</td>';
+			$wb .= "</tr>";
+			}
+			$wb .='</table><br>';
+		}
+		$sql.= $wh.$wb;
+		}
+		$sql .='</body></html>';
+	} elseif($ffmt[0]=='xls') {//xls format
+		$tbs= array_merge($tbs, $vws);
+		$ffty= "application/excel"; $ffext= ".xls"; $fname= $db.$ffext;
+		$sql ='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
+		foreach($tbs as $tb) {
+			$xh= '<Worksheet ss:Name="'.$tb.'"><Table><Row>';
+			$q_xl1= $ed->con->query("PRAGMA table_info(".$tb.")")->fetch(2);
+			foreach($q_xl1 as $r_xl1) {
+			$xh .= '<Cell><Data ss:Type="String">'.$r_xl1['name'].'</Data></Cell>';
+			}
+			$xh .='</Row>';
+			$q_xl2 = $ed->con->query("SELECT * FROM ".$tb)->fetch(1);
+			foreach($q_xl2 as $r_xl2) {
+			$xh .='<Row>';
+			foreach($r_xl2 as $r_x2) $xh .= '<Cell><Data ss:Type="'.(is_numeric($r_x2)?'Number':'String').'">'.$r_x2.'</Data></Cell>';
+			$xh .='</Row>';
+			}
+			$sql .=$xh.'</Table></Worksheet>';
+		}
+		$sql .='</Workbook>';
+	} elseif($ffmt[0]=='sqlite') {//sqlite format
+		$ffty= "application/octet-stream"; $ffext= $ed->ext; $fname= $db.$ffext;
+		$sql = file_get_contents($ed->dir.$db.$ed->ext);
 	}
-	if(in_array("sql", $ffmt)) {//type, ext
-		$ffty= "text/plain";
-		$ffext= ".sql";
-		$fname= $db.(count($tbs) == 1 ? ".".$tbs[0] : "").$ffext;
-	} elseif(in_array("csv", $ffmt)) {
-		$ffty= "text/csv";
-		$ffext= ".csv";
-		$fname= $tbs[0].$ffext;
-	} elseif(in_array("sqlite", $ffmt)) {
-		$ffty= "application/octet-stream";
-		$ffext= $ed->ext;
-		$fname= $db.$ffext;
-	}
-	$ftype= $ed->post('ftype');
-	if(in_array("gzip", $ftype)) {//pack
-		$zty= "application/x-gzip";
-		$zext= ".gz";
-	} elseif(in_array("zip", $ftype)) {
-		$zty= "application/x-zip";
-		$zext= ".zip";
-	}
+
 	if(in_array("gzip", $ftype)) {//gzip
+		$zty= "application/x-gzip"; $zext= ".gz";
 		ini_set('zlib.output_compression','Off');
-		$sql = gzencode($sql, 9);
+		if(is_array($sql) && count($sql)>1) {
+		$sq='';
+		foreach($sql as $qname=>$sqa) {
+			$tmpf= tmpfile();
+			$len= strlen($sqa);
+			$ctxt= pack("a100a8a8a8a12a12", $qname, 644, 0, 0, decoct($len), decoct(time()));
+			$checksum = 8*32;
+			for($i=0; $i < strlen($ctxt); $i++) $checksum += ord($ctxt[$i]);
+			$ctxt .= sprintf("%06o", $checksum)."\0 ";
+			$ctxt .= str_repeat("\0", 512 - strlen($ctxt));
+			$ctxt .= $sqa;
+			$ctxt .= str_repeat("\0", 511 - ($len + 511) % 512);
+			fwrite($tmpf, $ctxt);
+			fseek($tmpf, 0);
+			$fs = fstat($tmpf); 
+			$sq.= fread($tmpf, $fs['size']);
+			fclose($tmpf);
+		}
+		$fname= $db.".tar";
+		$sql= $sq.pack('a1024','');
+		} else {
+		$sql= $sql[$tbs[0].$ffext];
+		}
+		$sql= gzencode($sql, 9);
 		header('Content-Encoding: gzip');
 	} elseif(in_array("zip", $ftype)) {//zip
+		$zty= "application/x-zip";
+		$zext= ".zip";
 		$info = array();
 		$ctrl_dir = array();
 		$eof = "\x50\x4b\x05\x06\x00\x00\x00\x00";
 		$old_offset = 0;
+		if(is_array($sql)) $sqlx=$sql;
+		else $sqlx[$fname]=$sql;
+		foreach($sqlx as $qname=>$sqa) {
 		$ti = getdate();
 		if($ti['year'] < 1980) {
 		$ti['year'] = 1980;$ti['mon'] = 1;$ti['mday'] = 1;$ti['hours'] = 0;$ti['minutes'] = 0;$ti['seconds'] = 0;
@@ -1413,19 +1516,20 @@ case "32"://export
 		$hexdtime = '\x'.$dtime[6].$dtime[7].'\x'.$dtime[4].$dtime[5].'\x'.$dtime[2].$dtime[3].'\x'.$dtime[0].$dtime[1];
 		eval('$hexdtime = "'.$hexdtime.'";');
 		$fr = "\x50\x4b\x03\x04\x14\x00\x00\x00\x08\x00".$hexdtime;
-		$unc_len = strlen($sql);
-		$crc = crc32($sql);
-		$zdata = gzcompress($sql);
+		$unc_len = strlen($sqa);
+		$crc = crc32($sqa);
+		$zdata = gzcompress($sqa);
 		$zdata = substr(substr($zdata, 0, strlen($zdata) - 4), 2);
 		$c_len = strlen($zdata);
-		$fr .= pack('V', $crc).pack('V', $c_len).pack('V', $unc_len).pack('v', strlen($fname)).pack('v', 0).$fname.$zdata;
+		$fr .= pack('V', $crc).pack('V', $c_len).pack('V', $unc_len).pack('v', strlen($qname)).pack('v', 0).$qname.$zdata;
 		$info[] = $fr;
 		$cdrec = "\x50\x4b\x01\x02\x00\x00\x14\x00\x00\x00\x08\x00".$hexdtime.
-		pack('V', $crc).pack('V', $c_len).pack('V', $unc_len).pack('v', strlen($fname)).
+		pack('V', $crc).pack('V', $c_len).pack('V', $unc_len).pack('v', strlen($qname)).
 		pack('v', 0).pack('v', 0).pack('v', 0).pack('v', 0).pack('V', 32).pack('V', $old_offset);
 		$old_offset += strlen($fr);
-		$cdrec .= $fname;
+		$cdrec .= $qname;
 		$ctrl_dir[] = $cdrec;
+		}
 		$ctrldir = implode('', $ctrl_dir);
 		$end = $ctrldir.$eof.pack('v', sizeof($ctrl_dir)).pack('v', sizeof($ctrl_dir)).pack('V', strlen($ctrldir)).pack('V', $old_offset)."\x00\x00";
 		$datax = implode('', $info);
