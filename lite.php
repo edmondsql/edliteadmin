@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.6";
+$version="3.6.1";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -532,8 +532,7 @@ case "5"://show tables
 	$trg_tab .= "<tr class='r c$bg'><td>".$r_tri[0]."</td><td>".$r_tri[1]."</td><td><a href='{$ed->path}41/$db/".$r_tri[0]."/trigger'>Edit</a><a class='del' href='{$ed->path}49/$db/".$r_tri[0]."/trigger'>Drop</a></td></tr>";
 	++$t;
 	}
-	echo ($t>0 ? $trg_tab."</table>":"");
-	echo $ed->pg_number($pg, $totalpg);
+	echo ($t>0 ? $trg_tab."</table>":"").$ed->pg_number($pg, $totalpg);
 	$ed->con= null;
 break;
 
@@ -656,8 +655,7 @@ case "10"://structure
 	$ed->check(array(1,2));
 	$db = $ed->sg[1];
 	$tb = $ed->sg[2];
-	echo $head.$ed->menu($db,$tb,1);
-	echo $ed->form("9/$db/$tb")."<table><tr><th colspan='7'>TABLE STRUCTURE</th></tr><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th class='dot'>FIELD</th><th class='dot'>TYPE</th><th class='dot'>NULL</th><th class='dot'>DEFAULT</th><th class='dot'>PK</th><th class='dot'>ACTIONS</th></tr>";
+	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><tr><th colspan='7'>TABLE STRUCTURE</th></tr><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th class='dot'>FIELD</th><th class='dot'>TYPE</th><th class='dot'>NULL</th><th class='dot'>DEFAULT</th><th class='dot'>PK</th><th class='dot'>ACTIONS</th></tr>";
 	$q_rec = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec) {
 		$bg=($bg==1)?2:1;
@@ -695,9 +693,7 @@ case "11"://add field
 		if($e) $ed->redir("10/$db/$tb",array('ok'=>"Successfully added"));
 		else $ed->redir("10/$db/$tb",array('err'=>"Can't add this field"));
 	} else {
-		echo $head.$ed->menu($db,$tb,2);
-		echo $ed->form("11/$db/$tb").$stru;
-		echo "<tr><td><input type='text' name='f1' /></td>
+		echo $head.$ed->menu($db,$tb,2).$ed->form("11/$db/$tb").$stru."<tr><td><input type='text' name='f1' /></td>
 		<td><select name='f2'>".$ed->fieldtype()."</select></td>
 		<td><input type='text' name='f3' /></td>
 		<td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td>
@@ -763,8 +759,7 @@ case "12"://change field structure
 		$ed->con= null;
 		$ed->redir("10/$db/$tb",array('ok'=>"Successfully changed"));
 	} else {
-		echo $head.$ed->menu($db,$tb,2);
-		echo $ed->form("12/$db/$tb/$fn").$stru;
+		echo $head.$ed->menu($db,$tb,2).$ed->form("12/$db/$tb/$fn").$stru;
 		foreach($f as $d) {
 			if($d[1]==$fn){
 				$d_val= preg_split("/[()]+/", $d[2], -1, PREG_SPLIT_NO_EMPTY);
@@ -879,8 +874,7 @@ case "20"://table browse
 	$tbinfo= $ed->con->query("PRAGMA table_info($tb)");
 	$cols_name= $tbinfo->fetch(2);
 	$q_vws= $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
-	echo $head.$ed->menu($db,($q_vws=='view'?'':$tb),1,($q_vws=='view'?array('view',$tb):''));
-	echo "<table><tr>";
+	echo $head.$ed->menu($db,($q_vws=='view'?'':$tb),1,($q_vws=='view'?array('view',$tb):''))."<table><tr>";
 	if($q_vws != 'view') echo "<th>ACTIONS</th>";
 	foreach($cols_name as $c_name) echo "<th>". $c_name['name']."</th>";
 	echo "</tr>";
@@ -951,8 +945,7 @@ case "21"://insert row
 		if($q_inn === false) $ed->redir("$rr/$db/$tb",array('err'=>"Can't insert"));
 		else $ed->redir("$rr/$db/$tb",array('ok'=>"Successfully inserted"));
 	} else {
-		echo $head.$ed->menu($db,$tb,1);
-		echo $ed->form("21/$db/$tb", 1)."<table><caption>Insert Row</caption>";
+		echo $head.$ed->menu($db,$tb,1).$ed->form("21/$db/$tb", 1)."<table><caption>Insert Row</caption>";
 		foreach($q_pra as $r_pra) {
 			echo "<tr><td>".$r_pra['name']."</td><td>";
 			if(strtolower($r_pra['type'])=="boolean") {
@@ -1002,8 +995,7 @@ case "22"://edit row
 	} else {
 		$arr= $ed->con->query("SELECT * FROM ".$tb." WHERE ".$nu."='".$id."'")->fetch(2);
 		if(!$arr) $ed->redir("20/$db/$tb",array('err'=>"Can't edit empty field"));
-		echo $head.$ed->menu($db,$tb,1);
-		echo $ed->form("22/$db/$tb/$nu/".$ed->sg[4], 1)."<table><caption>Edit Row</caption>";
+		echo $head.$ed->menu($db,$tb,1).$ed->form("22/$db/$tb/$nu/".$ed->sg[4], 1)."<table><caption>Edit Row</caption>";
 		foreach($q_rd as $r_ed) {
 			$nr=$r_ed['name'];
 			$typ= strtolower($r_ed['type']);
@@ -1069,8 +1061,7 @@ case "24"://search
 	$_SESSION['_litesearch_'.$db.'_'.$tb]= $se_str;
 	$ed->redir("20/$db/$tb");
 	}
-	echo $head.$ed->menu($db,$tb,1);
-	echo $ed->form("24/$db/$tb")."<table><caption>Search</caption>";
+	echo $head.$ed->menu($db,$tb,1).$ed->form("24/$db/$tb")."<table><caption>Search</caption>";
 	$conds="";
 	foreach($cond as $cnd) $conds .= "<option value='".$cnd."'>".$cnd."</option>";
 	$fields="<option value=''>&nbsp;</option>";
@@ -1253,8 +1244,7 @@ case "31"://export form
 	}
 	}
 	if($ex > 0) {
-	echo $head.$ed->menu($db,'',2);
-	echo $ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
+	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
 	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> Select/Deselect</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
@@ -1492,8 +1482,6 @@ case "32"://export
 		}
 		$fname= $db.".tar";
 		$sql= $sq.pack('a1024','');
-		} else {
-		$sql= $sql[$tbs[0].$ffext];
 		}
 		$sql= gzencode($sql, 9);
 		header('Content-Encoding: gzip');
@@ -1583,8 +1571,7 @@ case "40"://view
 			if($v_cre === false) $ed->redir("40/".$db,array('err'=>"Can't create view"));
 			else $ed->redir("5/".$db,array('ok'=>"Successfully created"));
 		}
-		echo $head.$ed->menu($db,'',2);
-		echo $ed->form("40/$db");
+		echo $head.$ed->menu($db,'',2).$ed->form("40/$db");
 		$b_lbl="Create";
 	} else {//edit
 		$ed->check(array(1,5));
@@ -1603,8 +1590,7 @@ case "40"://view
 			$ed->con->exec("CREATE VIEW ".$tb." AS ".$vstat);
 			$ed->redir("5/".$db,array('ok'=>"Successfully updated"));
 		}
-		echo $head.$ed->menu($db,'',2,array($ty,$sp));
-		echo $ed->form("40/$db/$sp/$ty");
+		echo $head.$ed->menu($db,'',2,array($ty,$sp)).$ed->form("40/$db/$sp/$ty");
 		$b_lbl="Edit";
 	}
 	echo "<table><tr><th colspan='2'>$b_lbl View</th></tr>
@@ -1625,8 +1611,7 @@ case "41"://trigger
 		if($q_tgcrt === false) $ed->redir("5/".$db,array('err'=>"Create trigger failed"));
 		else $ed->redir("5/".$db,array('ok'=>"Successfully created"));
 		}
-		echo $head.$ed->menu($db,'',2);
-		echo $ed->form("41/$db");
+		echo $head.$ed->menu($db,'',2).$ed->form("41/$db");
 		$t_lbl="Create";
 	} else {//edit
 		$ed->check(array(1,5));
@@ -1646,8 +1631,7 @@ case "41"://trigger
 		}
 		$q_tge = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='$ty' AND name='$sp'", true)->fetch();
 		preg_match('/CREATE\sTRIGGER\s(.*)\s+(.*)\s+(.*)\s+ON\s+(.*)\s+BEGIN\s+(.*);\s+END$/i', $q_tge, $r_tge);
-		echo $head.$ed->menu($db,'',2,array($ty,$sp));
-		echo $ed->form("41/$db/$sp/$ty");
+		echo $head.$ed->menu($db,'',2,array($ty,$sp)).$ed->form("41/$db/$sp/$ty");
 		$t_lbl="Edit";
 	}
 
