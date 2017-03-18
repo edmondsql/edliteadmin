@@ -1,5 +1,5 @@
 # edliteadmin
 sqlite database management tool
 
-#about
+# about
 Please read more [here](http://edmondsql.github.io)
