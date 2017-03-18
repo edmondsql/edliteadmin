@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.6.1";
+$version="3.6.2";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -122,7 +122,7 @@ class ED {
 	}
 	public function clean($el, $cod='') {
 		if($cod==1) {
-		return trim(str_replace(array(">","<","\r\n","\r"), array("&gt;","&lt;","\n","\n"), $el));//quota
+		return trim(str_replace(array("\r\n","\r"), array("\n","\n"), $el));//quota
 		} else {
 		return trim(str_replace(array(">","<","\\","'",'"',"\r\n","\r"), array("&gt;","&lt;","\\\\","&#039;","&quot;","\n","\n"), $el));
 		}
@@ -393,7 +393,7 @@ textarea, .he {min-height:90px}
 .col1 textarea {position: relative;z-index:3}
 .col1 button {margin-bottom:1px}
 .col1 {vertical-align:top;padding-left:3px;padding-right:3px}
-.col1 {padding-bottom: 100%;margin-bottom: -100%}
+.col1 {padding-bottom: 1000%;margin-bottom: -1000%}
 .col1, .dw {width:180px}
 .col2 table {margin:3px 3px 0 3px}
 .col3 table, .dw {margin:3px auto}
