@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.6.2";
+$version="3.6.3";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -364,7 +364,7 @@ small {font-size:9px}
 .right, .link {float:right}
 .link {padding:3px 0}
 .pg * {padding:0 2px}
-.active {font-weight:bold}
+.active, caption {font-weight:bold}
 .l2 ul {list-style:none}
 .l2 li {float:left}
 h3 {background:#cdf;border-top:1px solid #555;margin-top:1px;padding:2px 0}
@@ -376,7 +376,7 @@ table {border-collapse: collapse;border-spacing:0;border-bottom:1px solid #555}
 td, th {padding:4px;vertical-align:top}
 .dot {border: 1px dotted #842}
 input[type=checkbox],input[type=radio]{position: relative;vertical-align: middle;bottom: 1px}
-input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius: 4px;-moz-border-radius: 4px;border-radius: 4px;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box}
+input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius: 3px;-moz-border-radius: 3px;border-radius: 3px;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box}
 input[type=text],select {min-width:98px !important}
 select {padding:1px 0}
 optgroup option {padding-left:8px}
@@ -444,7 +444,7 @@ for(var i=0;i<cbox.length;i++) cbox[i].checked = cb.checked;
 <div class="l1"><div class="left"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b></div>'.
 (isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="right"><div class="left more"><span class="a">More <small>&#9660;</small></span><div><a href="'.$ed->path.'60">Info</a></div></div><a href="'.$ed->path.'51">Logout</a></div>').'<br class="clear"/></div>';
 
-$stru= "<table><tr><th class='dot'>FIELD</th><th class='dot'>TYPE</th><th class='dot'>VALUE</th><th class='dot'>NULL</th><th class='dot'>DEFAULT</th></tr>";
+$stru= "<table><caption>TABLE STRUCTURE</caption><tr><th class='dot'>FIELD</th><th class='dot'>TYPE</th><th class='dot'>VALUE</th><th class='dot'>NULL</th><th class='dot'>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
 switch($ed->sg[0]) {
@@ -624,20 +624,18 @@ case "9":
 			$r_sql= preg_split("/,\s*PRIMARY KEY\s*\(.*\)|\s+PRIMARY\s+KEY\s*AUTOINCREMENT|\s+PRIMARY\s+KEY/i", $r_prsql[1], -1, PREG_SPLIT_NO_EMPTY);
 			$r_sql= implode("",$r_sql);
 			}
-			$ed->con->exec("BEGIN TRANSACTION");
 			$ed->con->exec("CREATE INDEX pk_{$tb} ON $tb($idx)");
 			$ed->con->exec("PRAGMA writable_schema=1");
 			$ed->con->exec("UPDATE sqlite_master SET name='sqlite_autoindex_{$tb}_1',sql=null WHERE name='pk_{$tb}'");
 			$ed->con->exec("UPDATE sqlite_master SET sql=\"CREATE TABLE $tb(".$r_sql.", PRIMARY KEY($idx))\" WHERE name='$tb'");
-			$ed->con->exec("COMMIT");
 			$ed->con->exec("PRAGMA writable_schema=0");
 		} elseif($ed->post('unique','i')) {
 			$ed->con->exec("CREATE UNIQUE INDEX UNI__".uniqid(mt_rand())." ON $tb($idx)");
 		} elseif($ed->post('index','i')) {
 			$ed->con->exec("CREATE INDEX IDX__".uniqid(mt_rand())." ON $tb($idx)");
 		}
-		$ed->con->exec("VACUUM");
 		$ed->con->exec("COMMIT");
+		$ed->con->exec("VACUUM");
 		$ed->redir("10/{$db}/".$tb,array('ok'=>"Successfully created"));
 	}
 	if(!empty($ed->sg[3])) {//drop index
@@ -698,7 +696,7 @@ case "11"://add field
 		<td><input type='text' name='f3' /></td>
 		<td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td>
 		<td><input type='text' name='f5' /></td></tr>
-		<tr><td class='c1' colspan='5'><button type='submit' name='add'>Add</button></td></tr></table></form>";
+		<tr><td class='c1' colspan='5'><button type='submit' name='add'>Add field</button></td></tr></table></form>";
 	}
 break;
 
@@ -1692,10 +1690,7 @@ case "60": //info
 		unset($dbv);
 		$lty= DBT::$litetype[1];
 	}
-	$v1= @file_get_contents("https://raw.githubusercontent.com/edmondsql/edmondsql.github.io/master/lite.txt");
-	if($v1 === FALSE) $v2='(offline)';
-	else $v2='<a href="https://github.com/edmondsql/edliteadmin/archive/'.trim($v1).'.zip">'.$v1.'</a>';
-	$q_var= array('Latest version'=>$v2,'Use extension'=>$lty,'SQLite'=>$vv,'PHP'=>PHP_VERSION,'Software'=>$_SERVER['SERVER_SOFTWARE']);
+	$q_var= array('Use extension'=>$lty,'SQLite'=>$vv,'PHP'=>PHP_VERSION,'Software'=>$_SERVER['SERVER_SOFTWARE']);
 	foreach($q_var as $r_k=>$r_var) {
 	$bg=($bg==1)?2:1;
 	echo "<tr class='r c$bg'><td class='dot'>".$r_k."</td><td class='dot'>".$r_var."</td></tr>";
