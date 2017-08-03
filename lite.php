@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.6.3";
+$version="3.6.4";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -897,7 +897,7 @@ case "20"://table browse
 			}
 			} elseif(strlen($val) > 100) {
 			echo substr($val,0,100)."(...)";
-			} else echo $val;
+			} else echo stripslashes($val);
 			echo "</td>";
 		}
 		echo "</tr>";
@@ -930,7 +930,7 @@ case "21"://insert row
 			$max= $ed->con->query("SELECT max(".$q_pra[0]['name'].") FROM ".$tb, true)->fetch();
 			$qr4.=($max+1).",";
 			} else {
-			$qr4.= (($ed->post('r'.$i,'e') && $r_ra['notnull']== 0)? "NULL":"'".html_entity_decode($ed->post('r'.$i))."'").",";
+			$qr4.= (($ed->post('r'.$i,'e') && $r_ra['notnull']== 0)? "NULL":"'".stripslashes($ed->post('r'.$i))."'").",";
 			}
 			}
 			++$i;
@@ -983,7 +983,7 @@ case "22"://edit row
 			} elseif($stype=="boolean") {
 				$qr .= $f_rd."='".($ed->post('d'.$f_rd,0) ? 1:'')."',";
 			} else {
-				$qr.= $f_rd."=".(($ed->post('d'.$f_rd,'e') && $r_rd['notnull']== 0)? "NULL":"'".html_entity_decode($ed->post('d'.$f_rd))."'").",";
+				$qr.= $f_rd."=".(($ed->post('d'.$f_rd,'e') && $r_rd['notnull']== 0)? "NULL":"'".stripslashes($ed->post('d'.$f_rd))."'").",";
 			}
 		}
 		$qq=substr($qr,0,-1);
@@ -1007,7 +1007,7 @@ case "22"://edit row
 			} elseif($typ=="text") {
 			echo "<textarea name='d".$nr."'>".html_entity_decode($arr[0][$nr],ENT_QUOTES)."</textarea>";
 			} else {
-			echo "<input type='text' name='d".$nr."' value='".stripslashes($arr[0][$nr])."' />";
+			echo "<input type='text' name='d".$nr."' value='".stripslashes($ed->clean($arr[0][$nr]))."' />";
 			}
 			echo "</td></tr>";
 		}
