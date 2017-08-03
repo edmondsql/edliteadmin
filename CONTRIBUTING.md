@@ -1,0 +1,1 @@
+Submit a new issue, and leaving as much information about the bug as possible.
