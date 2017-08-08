@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg='';
 $step=20;
-$version="3.6.4";
+$version="3.6.5";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -1007,7 +1007,7 @@ case "22"://edit row
 			} elseif($typ=="text") {
 			echo "<textarea name='d".$nr."'>".html_entity_decode($arr[0][$nr],ENT_QUOTES)."</textarea>";
 			} else {
-			echo "<input type='text' name='d".$nr."' value='".stripslashes($ed->clean($arr[0][$nr]))."' />";
+			echo "<input type='text' name='d".$nr."' value='".($arr[0][$nr])."' />";
 			}
 			echo "</td></tr>";
 		}
@@ -1206,6 +1206,7 @@ case "30"://import
 		foreach($e as $qry) {
 			$qry= trim($qry);
 			if(!empty($qry)) {
+				$qry= str_replace("\'","&#039;",$qry);
 				$exc= $ed->con->query($qry);
 				$op= array('insert','update','delete');
 				$p_qry= strtolower(substr($qry,0,6));
