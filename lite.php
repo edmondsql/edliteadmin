@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8";
+$version="3.8.1";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -256,20 +256,31 @@ class ED {
 		if(@is_file($fbody)) $fbody= file_get_contents($fbody);
 		$fbody= $this->utf($fbody);
 		$fbody= preg_replace('/^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE/','', $fbody);
-		$lines= array();
-		foreach(preg_split("/((\r?\n)|(\r\n?))/", $fbody) as $line) {
-		if(trim($line)!='') $lines[] = $line;
+		//delimiter
+		$delims= array(';'=> 0,','=> 0,"\t"=> 0);
+		foreach($delims as $dl => &$cnt) $cnt= count(str_getcsv($fbody, $dl));
+		$mark= array_search(max($delims), $delims);
+		//data
+		$data = explode("\n", str_replace(array("\r\n","\n\r","\r"),"\n", $fbody));
+		$row = null;
+		foreach($data as $item) {
+			$row .= $item;
+			if(trim($row) === '') {
+			$row = null;
+			continue;
+			} else if (substr_count($row,'"') % 2 !== 0) {
+			$row .= PHP_EOL;
+			continue;
+			}
+			$rows[] = str_getcsv($row,$mark,'"','"');
+			$row = null;
 		}
-		preg_match("/\"[\"]?+\"|[;,]/", $lines[0], $mark);
-		$i=1;
-		while($i < count($lines)) {
-			$e1='';
-			$li=array();
-			foreach(str_getcsv($lines[$i],$mark[0]) as $lin) $li[] = preg_replace("/^\"*|\"*$/u", "", $lin);
-			$e1.="INSERT INTO ".$fname."(".implode(',',str_getcsv($lines[0],$mark[0])).") VALUES(";
-			foreach($li as $l) $e1 .= (is_numeric($l)?$l:"'".$l."'").',';
-			$e[]= substr($e1,0,-1).");";
-			++$i;
+		foreach($rows as $k=>$rw) {
+		if($k>0) {
+		$e1= "INSERT INTO ".$fname."(".implode(',',$rows[0]).") VALUES(";
+		foreach($rw as $r) $e1 .= (is_numeric($r)?$r:"'".str_replace("'","''",$r)."'").',';
+		$e[]=substr($e1,0,-1).");";
+		}
 		}
 		if(empty($e)) $this->redir("5/".$this->sg[1],array('err'=>"Query failed"));
 		return $e;
@@ -1289,7 +1300,7 @@ case "31"://export form
 	}
 	if($ex > 0) {
 	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
-	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> Select/Deselect</p>
+	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> (De)Select All</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>".$tts."</option>";
