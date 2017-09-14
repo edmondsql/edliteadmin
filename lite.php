@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.1";
+$version="3.8.2";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -1179,7 +1179,7 @@ case "30"://import
 	$out="";
 	$q=0;
 	set_time_limit(7200);
-	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|(?-m)\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~m";
+	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|((?is)(BEGIN.*?END)|\"[^\"]*\"|'[^']*')(*SKIP)(*F)|;~";
 	if($ed->post('qtxt','!e')) {//in textarea
 		$e= preg_split($rgex, $ed->post('qtxt'), -1, PREG_SPLIT_NO_EMPTY);
 	} elseif($ed->post('send','i') && $ed->post('send') == "ja") {//from file
