@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.2";
+$version="3.8.3";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -216,9 +216,10 @@ class ED {
 			$q_fld= $this->con->query("PRAGMA table_info($tb)")->fetch(2);
 			$meta= array();
 			foreach($q_fld as $row) $meta[]= $row['name'];
-			if(!in_array($this->sg[3],$meta)) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
+			$err= array('err'=>"Field not exist");
+			if(!in_array($this->sg[3],$meta)) $this->redir($param['redir']."/$db/".$tb,$err);
 			if(isset($this->sg[5])) {
-			if(!in_array($this->sg[5],$meta)) $this->redir($param['redir']."/$db/".$tb,array('err'=>"Field not exist"));
+			if(!in_array($this->sg[5],$meta)) $this->redir($param['redir']."/$db/".$tb,$err);
 			}
 		}
 		if(in_array(4,$level)) {//check pagination
@@ -257,7 +258,7 @@ class ED {
 		$fbody= $this->utf($fbody);
 		$fbody= preg_replace('/^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE/','', $fbody);
 		//delimiter
-		$delims= array(';'=> 0,','=> 0,"\t"=> 0);
+		$delims= array(';'=> 0,','=> 0);
 		foreach($delims as $dl => &$cnt) $cnt= count(str_getcsv($fbody, $dl));
 		$mark= array_search(max($delims), $delims);
 		//data
@@ -937,7 +938,7 @@ case "20"://table browse
 	foreach($q_ti as $r_ti) $rinf[$r_ti[0]]= $r_ti[2];
 	foreach($r_rex as $row) {
 		$bg=($bg==1)?2:1;
-		$nu= $cols_name[0]['name']."/".base64_encode($row[0]).((stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
+		$nu= $cols_name[0]['name']."/".(empty($row[0])?"isnull":base64_encode($row[0])).((stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
 		echo "<tr class='r c$bg'>";
 		if($q_vws != 'view') echo "<td><a href='{$ed->path}22/$db/$tb/$nu'>Edit</a><a class='del' href='{$ed->path}23/$db/$tb/$nu'>Delete</a></td>";
 		$j=0;
@@ -1026,8 +1027,10 @@ case "22"://edit row
 	$ed->check(array(1,2,3),array('redir'=>20));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
-	$nu= $ed->sg[3]; $id= base64_decode($ed->sg[4]);
-	$nu1= empty($ed->sg[5])?"":$ed->sg[5]; $id1= empty($ed->sg[6])?"":base64_decode($ed->sg[6]);
+	$nu= $ed->sg[3];
+	if(empty($nu)) $ed->redir("20/$db/$tb",array('err'=>"Can't edit empty field"));
+	$id= ($ed->sg[4]=="isnull"?"":base64_decode($ed->sg[4]));
+	$nu1= (empty($ed->sg[5])?"":$ed->sg[5]); $id1= (empty($ed->sg[6])?"":base64_decode($ed->sg[6]));
 	$q_rd= $ed->con->query("PRAGMA table_info($tb)")->fetch(2);
 	if($ed->post('edit','i')) {
 		$qr="";
@@ -1045,13 +1048,12 @@ case "22"://edit row
 			}
 		}
 		$qq=substr($qr,0,-1);
-		$q_edd= $ed->con->exec("UPDATE $tb SET $qq WHERE $nu='$id'".(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":""));
+		$q_edd= $ed->con->exec("UPDATE $tb SET $qq WHERE ".$nu.($id==""?" IS NULL":"='$id'").(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":""));
 		if($q_edd === false) $ed->redir("20/$db/$tb",array('err'=>"Can't update"));
 		else $ed->redir("20/$db/$tb",array('ok'=>"Successfully updated"));
 	} else {
-		$arr= $ed->con->query("SELECT * FROM $tb WHERE $nu='$id'".(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":"")." LIMIT 1")->fetch(2);
-		if(!$arr) $ed->redir("20/$db/$tb",array('err'=>"Can't edit empty field"));
-		echo $head.$ed->menu($db,$tb,1).$ed->form("22/$db/$tb/$nu/".base64_encode($id).(!empty($nu1) && !empty($id1)?"/$nu1/".base64_encode($id1):""), 1)."<table><caption>Edit Row</caption>";
+		$arr= $ed->con->query("SELECT * FROM $tb WHERE ".$nu.($id==""?" IS NULL":"='$id'").(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":"")." LIMIT 1")->fetch(2);
+		echo $head.$ed->menu($db,$tb,1).$ed->form("22/$db/$tb/$nu/".($id==""?"isnull":base64_encode($id)).(!empty($nu1) && !empty($id1)?"/$nu1/".base64_encode($id1):""), 1)."<table><caption>Edit Row</caption>";
 		foreach($q_rd as $r_ed) {
 			$nr=$r_ed['name'];
 			$typ= strtolower($r_ed['type']);
@@ -1069,7 +1071,7 @@ case "22"://edit row
 			}
 			echo "</td></tr>";
 		}
-		echo "<tr class='c1'><td><a class='del link' href='".$ed->path."23/$db/$tb/$nu/".base64_encode($id).(!empty($nu1) && !empty($id1)?"/$nu1/".base64_encode($id1):"")."'>Delete</a></td><td><button type='submit' name='edit'>Update</button></td></tr></table></form>";
+		echo "<tr class='c1'><td><a class='del link' href='".$ed->path."23/$db/$tb/$nu/".($id==""?"isnull":base64_encode($id)).(!empty($nu1) && !empty($id1)?"/$nu1/".base64_encode($id1):"")."'>Delete</a></td><td><button type='submit' name='edit'>Update</button></td></tr></table></form>";
 	}
 break;
 
@@ -1077,7 +1079,7 @@ case "23"://delete row
 	$ed->check(array(1,2,3),array('redir'=>20));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
-	$exec_dr= $ed->con->query("DELETE FROM ".$tb." WHERE ".$ed->sg[3]."='".base64_decode($ed->sg[4])."'".(!empty($ed->sg[5]) && !empty($ed->sg[6])?" AND `".$ed->sg[5]."`='".base64_decode($ed->sg[6])."'":""));
+	$exec_dr= $ed->con->query("DELETE FROM ".$tb." WHERE ".$ed->sg[3].($ed->sg[4]=="isnull"?" IS NULL":"='".base64_decode($ed->sg[4])."'").(!empty($ed->sg[5]) && !empty($ed->sg[6])?" AND ".$ed->sg[5]."='".base64_decode($ed->sg[6])."'":""));
 	if($exec_dr->last()) $ed->redir("20/$db/$tb",array('ok'=>"Deleted row"));
 	else $ed->redir("20/$db/$tb",array('err'=>"Delete row failed"));
 break;
