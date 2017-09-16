@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.3";
+$version="3.8.4";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -938,9 +938,11 @@ case "20"://table browse
 	foreach($q_ti as $r_ti) $rinf[$r_ti[0]]= $r_ti[2];
 	foreach($r_rex as $row) {
 		$bg=($bg==1)?2:1;
-		$nu= $cols_name[0]['name']."/".(empty($row[0])?"isnull":base64_encode($row[0])).((stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
 		echo "<tr class='r c$bg'>";
-		if($q_vws != 'view') echo "<td><a href='{$ed->path}22/$db/$tb/$nu'>Edit</a><a class='del' href='{$ed->path}23/$db/$tb/$nu'>Delete</a></td>";
+		if($q_vws != 'view') {
+		$nu= $cols_name[0]['name']."/".(empty($row[0])?"isnull":base64_encode($row[0])).((stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
+		echo "<td><a href='{$ed->path}22/$db/$tb/$nu'>Edit</a><a class='del' href='{$ed->path}23/$db/$tb/$nu'>Delete</a></td>";
+		}
 		$j=0;
 		while($j<$cols) {
 			$val= htmlentities($row[$j]);
