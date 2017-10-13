@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.4";
+$version="3.8.5";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -940,7 +940,7 @@ case "20"://table browse
 		$bg=($bg==1)?2:1;
 		echo "<tr class='r c$bg'>";
 		if($q_vws != 'view') {
-		$nu= $cols_name[0]['name']."/".(empty($row[0])?"isnull":base64_encode($row[0])).((stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
+		$nu= $cols_name[0]['name']."/".($row[0]=="" && !is_numeric($row[0])?"isnull":base64_encode($row[0])).((stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
 		echo "<td><a href='{$ed->path}22/$db/$tb/$nu'>Edit</a><a class='del' href='{$ed->path}23/$db/$tb/$nu'>Delete</a></td>";
 		}
 		$j=0;
@@ -1034,6 +1034,7 @@ case "22"://edit row
 	$id= ($ed->sg[4]=="isnull"?"":base64_decode($ed->sg[4]));
 	$nu1= (empty($ed->sg[5])?"":$ed->sg[5]); $id1= (empty($ed->sg[6])?"":base64_decode($ed->sg[6]));
 	$q_rd= $ed->con->query("PRAGMA table_info($tb)")->fetch(2);
+	$nul= ("(".$nu." IS NULL OR ".$nu."='')");
 	if($ed->post('edit','i')) {
 		$qr="";
 		foreach($q_rd as $r_rd) {
@@ -1046,15 +1047,15 @@ case "22"://edit row
 			} elseif($stype=="boolean") {
 				$qr .= $f_rd."='".($ed->post('d'.$f_rd,0) ? 1:'')."',";
 			} else {
-				$qr.= $f_rd."=".(($ed->post('d'.$f_rd,'e') && $r_rd['notnull']== 0)? "NULL":"'".$qry= str_replace("'","''",$ed->post('d'.$f_rd))."'").",";
+				$qr.= $f_rd."=".(($ed->post('d'.$f_rd,'e') && !is_numeric($ed->post('d'.$f_rd)) && $r_rd['notnull']== 0)? "NULL":"'".$qry= str_replace("'","''",$ed->post('d'.$f_rd))."'").",";
 			}
 		}
 		$qq=substr($qr,0,-1);
-		$q_edd= $ed->con->exec("UPDATE $tb SET $qq WHERE ".$nu.($id==""?" IS NULL":"='$id'").(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":""));
+		$q_edd= $ed->con->exec("UPDATE $tb SET $qq WHERE ".($id==""?$nul:$nu."='$id'").(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":""));
 		if($q_edd === false) $ed->redir("20/$db/$tb",array('err'=>"Can't update"));
 		else $ed->redir("20/$db/$tb",array('ok'=>"Successfully updated"));
 	} else {
-		$arr= $ed->con->query("SELECT * FROM $tb WHERE ".$nu.($id==""?" IS NULL":"='$id'").(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":"")." LIMIT 1")->fetch(2);
+		$arr= $ed->con->query("SELECT * FROM $tb WHERE ".($id==""?$nul:$nu."='$id'").(!empty($nu1) && !empty($id1)?" AND $nu1='$id1'":"")." LIMIT 1")->fetch(2);
 		echo $head.$ed->menu($db,$tb,1).$ed->form("22/$db/$tb/$nu/".($id==""?"isnull":base64_encode($id)).(!empty($nu1) && !empty($id1)?"/$nu1/".base64_encode($id1):""), 1)."<table><caption>Edit Row</caption>";
 		foreach($q_rd as $r_ed) {
 			$nr=$r_ed['name'];
@@ -1081,7 +1082,8 @@ case "23"://delete row
 	$ed->check(array(1,2,3),array('redir'=>20));
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
-	$exec_dr= $ed->con->query("DELETE FROM ".$tb." WHERE ".$ed->sg[3].($ed->sg[4]=="isnull"?" IS NULL":"='".base64_decode($ed->sg[4])."'").(!empty($ed->sg[5]) && !empty($ed->sg[6])?" AND ".$ed->sg[5]."='".base64_decode($ed->sg[6])."'":""));
+	$nul= ("(".$ed->sg[3]." IS NULL OR ".$ed->sg[3]."='')");
+	$exec_dr= $ed->con->query("DELETE FROM ".$tb." WHERE ".($ed->sg[4]=="isnull"?$nul:$ed->sg[3]."='".base64_decode($ed->sg[4])."'").(!empty($ed->sg[5]) && !empty($ed->sg[6])?" AND ".$ed->sg[5]."='".base64_decode($ed->sg[6])."'":""));
 	if($exec_dr->last()) $ed->redir("20/$db/$tb",array('ok'=>"Deleted row"));
 	else $ed->redir("20/$db/$tb",array('err'=>"Delete row failed"));
 break;
@@ -1304,7 +1306,7 @@ case "31"://export form
 	}
 	if($ex > 0) {
 	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
-	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> (De)Select All</p>
+	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>".$tts."</option>";
@@ -1315,7 +1317,7 @@ case "31"://export form
 	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' onclick="opt()" checked':'')." /> ".$opt."</p>";
 	}
 	echo "</div><div><h3>File format</h3>";
-	$ffo = array('sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word 2000','xml'=>'XML','sqlite'=>'SQLite');
+	$ffo = array('sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word Web','xml'=>'XML','sqlite'=>'SQLite');
 	foreach($ffo as $k => $ff) {
 	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
 	}
