@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.5";
+$version="3.8.6";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -1185,7 +1185,7 @@ case "30"://import
 	$out="";
 	$q=0;
 	set_time_limit(7200);
-	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|((?is)(BEGIN.*?END)|\"[^\"]*\"|'[^']*')(*SKIP)(*F)|;~";
+	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|((?is)(BEGIN.*?END)|\"[^\"]*\"|'[^\\\'|^']*')(*SKIP)(*F)|;~";
 	if($ed->post('qtxt','!e')) {//in textarea
 		$e= preg_split($rgex, $ed->post('qtxt'), -1, PREG_SPLIT_NO_EMPTY);
 	} elseif($ed->post('send','i') && $ed->post('send') == "ja") {//from file
@@ -1321,12 +1321,12 @@ case "31"://export form
 	foreach($ffo as $k => $ff) {
 	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
 	}
-	echo "</div><div><h3>File type</h3>";
-	$fty = array('plain'=>'Plain','gzip'=>'GZ','zip'=>'Zip');
+	echo "</div><div><h3>File compression</h3><p><select name='ftype'>";
+	$fty = array('plain'=>'None','gzip'=>'GZ','zip'=>'Zip');
 	foreach($fty as $k => $ft) {
-	echo "<p><input type='radio' name='ftype[]' value='{$k}'".($k=='plain' ? ' checked':'')." /> {$ft}</p>";
+	echo "<option value='{$k}'>{$ft}</option>";
 	}
-	echo "</div><div><button type='submit' name='exp'>Export</button></div></div></form>";
+	echo "</select></p></div><div><button type='submit' name='exp'>Export</button></div></div></form>";
 	} else {
 	$ed->redir("5/".$db,array("err"=>"No export empty DB"));
 	}
@@ -1410,7 +1410,7 @@ case "32"://export
 		$tbs= array_merge($tbs, $vws);
 		$ffty= "text/csv"; $ffext= ".csv"; $fname= $db.$ffext;
 		$sql= array();
-		if(count($tbs)==1 || in_array("plain", $ftype)) {
+		if(count($tbs)==1 || $ftype=="plain") {
 			$tbs= array($tbs[0]);
 			$fname= $tbs[0].$ffext;
 		}
@@ -1438,12 +1438,12 @@ case "32"://export
 			}
 			$sql[$tb.$ffext]= $sq;
 		}
-		if(count($tbs)==1 || in_array("plain", $ftype)) $sql= $sql[$fname];
+		if(count($tbs)==1 || $ftype=="plain") $sql= $sql[$fname];
 	} elseif($ffmt[0]=='json') {//json format
 		$tbs= array_merge($tbs, $vws);
 		$ffty= "text/json"; $ffext= ".json"; $fname= $db.$ffext;
 		$sql= array();
-		if(count($tbs)==1 || in_array("plain", $ftype)) {
+		if(count($tbs)==1 || $ftype=="plain") {
 			$tbs= array($tbs[0]);
 			$fname= $tbs[0].$ffext;
 		}
@@ -1461,7 +1461,7 @@ case "32"://export
 			}
 			$sql[$tb.$ffext]= $sq;
 		}
-		if(count($tbs)==1 || in_array("plain", $ftype)) $sql= $sql[$fname];
+		if(count($tbs)==1 || $ftype=="plain") $sql= $sql[$fname];
 	} elseif($ffmt[0]=='doc') {//doc format
 		$tbs= array_merge($tbs, $vws);
 		$ffty= "application/msword"; $ffext= ".doc"; $fname=$db.$ffext;
@@ -1553,7 +1553,7 @@ case "32"://export
 		$sql = file_get_contents($ed->dir.$db.$ed->ext);
 	}
 
-	if(in_array("gzip", $ftype)) {//gzip
+	if($ftype=="gzip") {//gzip
 		$zty= "application/x-gzip"; $zext= ".gz";
 		ini_set('zlib.output_compression','Off');
 		if(is_array($sql) && count($sql)>1) {
@@ -1579,7 +1579,7 @@ case "32"://export
 		}
 		$sql= gzencode($sql, 9);
 		header('Content-Encoding: gzip');
-	} elseif(in_array("zip", $ftype)) {//zip
+	} elseif($ftype=="zip") {//zip
 		$zty= "application/x-zip";
 		$zext= ".zip";
 		$info = array();
@@ -1618,9 +1618,9 @@ case "32"://export
 		$sql = $datax.$end;
 	}
 	header("Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0");
-	header("Content-Type: ".(in_array("plain", $ftype) ? $ffty."; charset=utf-8" : $zty));
+	header("Content-Type: ".($ftype=="plain" ? $ffty."; charset=utf-8" : $zty));
 	header("Content-Length: ".strlen($sql));
-	header("Content-Disposition: attachment; filename=".$fname.(in_array("plain", $ftype) ? "":$zext));
+	header("Content-Disposition: attachment; filename=".$fname.($ftype=="plain" ? "":$zext));
 	die($sql);
 break;
 
