@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.6";
+$version="3.8.7";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -360,7 +360,11 @@ class ED {
 		if(in_array('drop',$fopt)) {//check option drop
 		$val .= $tab."DROP TABLE IF EXISTS $tb;\n";
 		}
-		$val .= $tab.str_replace("\n","\n".$tab,$this->con->query("SELECT sql FROM sqlite_master WHERE name='$tb'", true)->fetch().";");
+		$q_tbst= $this->con->query("SELECT sql FROM sqlite_master WHERE name='$tb'", true)->fetch().";";
+		if(in_array('ifnot',$fopt)) {//check option if not
+		$q_tbst= preg_replace('~(CREATE\sTABLE\s)(.*)~i','${1}IF NOT EXISTS ${2}',$q_tbst);
+		}
+		$val .= $tab.str_replace("\n","\n".$tab,$q_tbst);
 		$q_tidx= $this->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type='index'");
 		$cidx= $q_tidx->num_col();
 		if($cidx > 0) {
@@ -487,11 +491,7 @@ for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
 for(var k=0;k<from;k++) opt[k].parentElement.style.display="block";
 for(var k=2;k<to;k++) opt[k].parentElement.style.display="none";
 }else if(ch=="sql"){
-for(var k=0;k<from;k++) opt[k].parentElement.style.display="block";
-for(var l=from;l<to;l++){
-if(opt[0].checked == false) opt[l].checked=false;
-opt[l].parentElement.style.display=(opt[0].checked ? "block":"none");
-}
+for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
 }
 }
 </script>
@@ -1185,7 +1185,7 @@ case "30"://import
 	$out="";
 	$q=0;
 	set_time_limit(7200);
-	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|((?is)(BEGIN.*?END)|\"[^\"]*\"|'[^\\\'|^']*')(*SKIP)(*F)|;~";
+	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|((?is)(BEGIN.*?END)|\"[^\"]*\"|'[^'|\\\']*')(*SKIP)(*F)|;~";
 	if($ed->post('qtxt','!e')) {//in textarea
 		$e= preg_split($rgex, $ed->post('qtxt'), -1, PREG_SPLIT_NO_EMPTY);
 	} elseif($ed->post('send','i') && $ed->post('send') == "ja") {//from file
@@ -1312,9 +1312,9 @@ case "31"://export form
 	echo "<option value='$tts'>".$tts."</option>";
 	}
 	echo "</select></div><div><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
-	$opts = array('structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','trigger'=>'Triggers');
+	$opts = array('structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers');
 	foreach($opts as $k => $opt) {
-	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' onclick="opt()" checked':'')." /> ".$opt."</p>";
+	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' checked':'')." /> ".$opt."</p>";
 	}
 	echo "</div><div><h3>File format</h3>";
 	$ffo = array('sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word Web','xml'=>'XML','sqlite'=>'SQLite');
@@ -1340,9 +1340,9 @@ case "32"://export
 	$ftype= $ed->post('ftype');
 	$ffmt= $ed->post('ffmt');
 	if($ffmt[0]!='sqlite') {
-	if($ed->post('tables') =='') {
+	if($ed->post('tables')=='' && $ffmt[0]!='sql') {
 		$ed->redir("31/".$db,array('err'=>"You didn't select any table"));
-	} else {//selected tables
+	} elseif($ed->post('tables','!e')) {//selected tables
 		$tabs= $ed->post('tables');
 		foreach($tabs as $tab) {
 			$q_strc= $ed->con->query("SELECT name,type FROM sqlite_master WHERE name='$tab'")->fetch(2);
@@ -1363,10 +1363,10 @@ case "32"://export
 		$ffty= "text/plain"; $ffext= ".sql"; $fname= $db.$ffext;
 		$sql="-- EdLiteAdmin $version SQL Dump\n\n";
 		if(!empty($fopt)) {
+			$val='';
 			foreach($tbs as $tb) {
-			$val="";
 			if(in_array('structure',$fopt)) {//begin structure
-				$val .= $ed->tb_structure($tb,$fopt);
+				$sql .= $ed->tb_structure($tb,$fopt);
 			}
 			if(in_array('data',$fopt)) {//check option data
 				$res2 = $ed->con->query("SELECT * FROM ".$tb);
@@ -1381,30 +1381,43 @@ case "32"://export
 					}
 					$val.= substr($ro,0,-1).");";
 				}
-				$val.= "\n";
+				$sql.= $val."\n";
 			}
-			if(in_array('trigger',$fopt)) {//check option data
-				$q_ttgr= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type='trigger'")->fetch(2);
-				if(isset($q_ttgr[0]['name'])) {
-				if(in_array('drop',$fopt)) {//check option drop
-				$val .= "\nDROP TRIGGER IF EXISTS ".$q_ttgr[0]['name'].";";
-				}
-				$val .= "\n".$q_ttgr[0]['sql'].";\n";
-				}
-			}
-			$sql.= $val."\n";
+			$sql.= "\n";
 			}
 			if($vws != '' && in_array('structure',$fopt)) {//export views
 			foreach($vws as $vw) {
-				$q_rw= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='view'", true)->fetch();
+				$q_rw= $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$vw' AND type='view'", true)->fetch();
 				if($q_rw) {
+					if(in_array('drop',$fopt)) {//check option drop
+					$sql .= "DROP VIEW IF EXISTS $vw;\n";
+					}
+					if(in_array('ifnot',$fopt)) {//check option if not
+					$sql.= preg_replace('~(CREATE\sVIEW\s)(.*)~i','${1}IF NOT EXISTS ${2}',$q_rw);
+					} else {
+					$sql.= $q_rw;
+					}
+					$sql.= ";\n\n";
+				}
+			}
+			$sql.= "\n";
+			}
+			if(in_array('trigger',$fopt)) {//check option data
+				$q_ttgr= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
+				foreach($q_ttgr as $r_ttgr) {
 				if(in_array('drop',$fopt)) {//check option drop
-				$sql .= "DROP VIEW IF EXISTS $vw;\n";
+				$sql .= "\nDROP TRIGGER IF EXISTS ".$r_ttgr[0].";";
 				}
-				$sql .= $q_rw.";\n\r";
+				$sql .= "\n";
+				if(in_array('ifnot',$fopt)) {//check option if not
+				$sql.= preg_replace('~(CREATE\sTRIGGER\s)(.*)~i','${1}IF NOT EXISTS ${2}',$r_ttgr[1]);
+				} else {
+				$sql.= $r_ttgr[1];
+				}
+				$sql .= ";\n";
 				}
 			}
-			}
+			$sql.= "\n";
 		}
 	} elseif($ffmt[0]=='csv1' || $ffmt[0]=='csv2') {//csv format
 		$tbs= array_merge($tbs, $vws);
