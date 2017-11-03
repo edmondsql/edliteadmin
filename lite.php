@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.7";
+$version="3.8.8";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -91,7 +91,7 @@ class DBT {
 	}
 }
 class ED {
-	public $con, $dir, $ext=".db3", $sg, $path, $pg_lr=8;
+	public $con, $dir, $ext=".db3", $sg, $path;
 	protected $passwd='';
 	public function __construct() {
 		$this->dir= getcwd()."/";
@@ -180,13 +180,13 @@ class ED {
 		$nrf_op.= "<option value='$f'>$f</option>";
 		++$f;
 		}
-		if($left==1) $str .= "<div class='col1'><h3>SQL Query</h3>
+		if($left==1) $str .= "<div class='col1'><p class='h3'>SQL Query</p>
 		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
-		<h3>Import</h3><small>sql, csv, json, xml, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
+		<p class='h3'>Import</p><small>sql, csv, json, xml, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
 		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
-		<h3>Create Table</h3>".$this->form("6/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
-		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
-		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
+		<p class='h3'>Create Table</p>".$this->form("6/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
+		<p class='h3'>Rename DB</p>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
+		<p class='h3'>Create</p><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
 		return $str;
 	}
 	public function check($level=array(), $param=array()) {
@@ -235,18 +235,16 @@ class ED {
 	}
 	public function pg_number($pg, $totalpg) {
 		if($totalpg > 1) {
-		$kl= ($pg > $this->pg_lr ? $pg-$this->pg_lr:1);//left pg
-		$kr= (($pg > $totalpg-$this->pg_lr) ? $totalpg:$pg+$this->pg_lr);//right pg
 		if($this->sg[0]==20) $link= $this->path."20/".$this->sg[1]."/".$this->sg[2];
 		elseif($this->sg[0]==5) $link= $this->path."5/".$this->sg[1];
-		$pgs='';
-		while($kl <= $kr) {
-			$pgs .= (($kl == $pg) ? "<span class='active'>".$kl."</span>" : "<a href='$link/$kl'>$kl</a>");
-			++$kl;
+		$pgs='';$k=1;
+		while($k <= $totalpg) {
+			$pgs .= "<option ".(($k == $pg) ? "selected='selected'>":"value='$link/$k'>")."$k</option>";
+			++$k;
 		}
 		$lft= ($pg>1?"<a href='$link/1'>First</a><a href='$link/".($pg-1)."'>Prev</a>":"");
 		$rgt= ($pg < $totalpg?"<a href='$link/".($pg+1)."'>Next</a><a href='$link/$totalpg'>Last</a>":"");
-		return "<div class='pg'>".$lft.$pgs.$rgt."</div>";
+		return "<div class='pg'>".$lft."<select onchange='location=this.value;'>$pgs</select>".$rgt."</div>";
 		}
 	}
 	public function imp_csv($fname, $fbody) {
@@ -407,19 +405,18 @@ small {font-size:9px}
 .cntr {text-align:center}
 .right, .link {float:right}
 .link {padding:3px 0}
-.pg * {padding:0 2px}
-.active, caption {font-weight:bold}
+.pg * {padding:0 2px;width:auto}
+caption {font-weight:bold;text-decoration:underline}
 .l2 ul {list-style:none}
 .l2 li,.left {float:left}
 .left button {margin:0 1px}
-h3 {background:#cdf;border-top:1px solid #555;margin-top:1px;padding:2px 0}
+.h3 {background:#cdf;text-decoration:overline;margin-top:1px;padding:2px 0}
 a {color:#842;text-decoration:none;background-color:transparent}
 a:hover {text-decoration:underline}
 a,a:active,a:hover {outline:0}
 table a,.l1 a,.l2 a,.col1 a {padding:0 3px}
 table {border-collapse: collapse;border-spacing:0;border-bottom:1px solid #555}
 td, th {padding:4px;vertical-align:top}
-.dot {border: 1px dotted #842}
 input[type=checkbox],input[type=radio]{position: relative;vertical-align: middle;bottom: 1px}
 input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius: 3px;-moz-border-radius: 3px;border-radius: 3px;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box}
 input[type=text],select {min-width:98px !important}
@@ -489,7 +486,7 @@ if(ch=="csv1" || ch=="csv2" || ch=="json" || ch=="xls" || ch=="sqlite"){
 for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
 }else if(ch=="doc" || ch=="xml"){
 for(var k=0;k<from;k++) opt[k].parentElement.style.display="block";
-for(var k=2;k<to;k++) opt[k].parentElement.style.display="none";
+for(var k=2;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=false;}
 }else if(ch=="sql"){
 for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
 }
@@ -498,7 +495,7 @@ for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
 </head><body><noscript><h1 class="msg err">Please activate Javascript in your browser!</h1></noscript>
 <div class="l1"><div class="left"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b></div>'.
 (isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="right"><div class="left more"><span class="a">More <small>&#9660;</small></span><div><a href="'.$ed->path.'60">Info</a></div></div><a href="'.$ed->path.'51">Logout</a></div>').'<br class="clear"/></div>';
-$stru= "<table><caption>TABLE STRUCTURE</caption><tr><th class='dot'>FIELD</th><th class='dot'>TYPE</th><th class='dot'>VALUE</th><th class='dot'>NULL</th><th class='dot'>DEFAULT</th></tr>";
+$stru= "<table><caption>TABLE STRUCTURE</caption><tr><th>FIELD</th><th>TYPE</th><th>VALUE</th><th>NULL</th><th>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
 switch($ed->sg[0]) {
@@ -706,25 +703,25 @@ case "9":
 	$ed->redir("10/$db/$tb",array('err'=>"Wrong action"));
 break;
 
-case "10"://structure
+case "10"://table structure
 	$ed->check(array(1,2));
 	$db = $ed->sg[1];
 	$tb = $ed->sg[2];
-	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><tr><th colspan='7'>TABLE STRUCTURE</th></tr><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th class='dot'>FIELD</th><th class='dot'>TYPE</th><th class='dot'>NULL</th><th class='dot'>DEFAULT</th><th class='dot'>PK</th><th class='dot'>ACTIONS</th></tr>";
+	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>TABLE STRUCTURE</caption><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th>FIELD</th><th>TYPE</th><th>NULL</th><th>DEFAULT</th><th>PK</th><th>ACTIONS</th></tr>";
 	$q_rec = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec) {
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td class='dot'>".$rec[1]."</td><td class='dot'>".$rec[2]."</td><td class='dot'>".($rec[3]==0 ? 'Yes':'No')."</td><td class='dot'>".$rec[4]."</td><td class='dot'>".($rec[5]==1 ? 'PK':'')."</td><td class='dot'><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a></td></tr>";
+		echo "<tr class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]==1 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a></td></tr>";
 	}
 	echo "<tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a> <a href='{$ed->path}27/$db/$tb/vacuum'>Vacuum</a></div></td></tr></table></form>";
 	$q_idx = $ed->con->query("PRAGMA index_list($tb)")->fetch(1);
-	echo "<table><tr><th colspan='4'>INDEXES</th></tr><tr><th class='dot'>NAME</th><th class='dot'>FIELD</th><th class='dot'>Unique</th><th class='dot'>Action</th></tr>";
+	echo "<table><caption>INDEXES</caption><tr><th>NAME</th><th>FIELD</th><th>Unique</th><th>Action</th></tr>";
 	foreach($q_idx as $rc) {
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg'><td class='dot'>".$rc[1]."</td><td class='dot'>";
+		echo "<tr class='r c$bg'><td>".$rc[1]."</td><td>";
 		$q= $ed->con->query("PRAGMA index_info('".$rc[1]."')")->fetch(1);
 		foreach($q as $rd) echo $rd[2]." ";
-		echo "</td><td class='dot'>".($rc[2]==1 ? 'YES':'NO')."</td><td class='dot'><a class='del' href='{$ed->path}9/$db/$tb/".base64_encode($rc[1])."'>Drop</a></td></tr>";
+		echo "</td><td>".($rc[2]==1 ? 'YES':'NO')."</td><td><a class='del' href='{$ed->path}9/$db/$tb/".base64_encode($rc[1])."'>Drop</a></td></tr>";
 	}
 	echo "</table>";
 	$ed->con= null;
@@ -940,13 +937,13 @@ case "20"://table browse
 		$bg=($bg==1)?2:1;
 		echo "<tr class='r c$bg'>";
 		if($q_vws != 'view') {
-		$nu= $cols_name[0]['name']."/".($row[0]=="" && !is_numeric($row[0])?"isnull":base64_encode($row[0])).((stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
+		$nu= $cols_name[0]['name']."/".($row[0]=="" && !is_numeric($row[0])?"isnull":base64_encode($row[0])).(!empty($rinf[1]) && (stristr($rinf[1],"int") || stristr($rinf[1],"varchar")) && stristr($rinf[1],"blob") == false && !empty($row[1]) ? "/".$cols_name[1]['name']."/".base64_encode($row[1]):"");
 		echo "<td><a href='{$ed->path}22/$db/$tb/$nu'>Edit</a><a class='del' href='{$ed->path}23/$db/$tb/$nu'>Delete</a></td>";
 		}
 		$j=0;
 		while($j<$cols) {
 			$val= htmlentities($row[$j]);
-			echo "<td class='dot'>";
+			echo "<td>";
 			if(stristr($rinf[$j],"blob") == true ) {
 			$le= strlen($row[$j]);
 			echo "[blob] ";
@@ -1305,23 +1302,23 @@ case "31"://export form
 	}
 	}
 	if($ex > 0) {
-	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
+	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><p class='h3 l1'>Export</p><div><p class='h3'>Select table(s)</p>
 	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>".$tts."</option>";
 	}
-	echo "</select></div><div><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
+	echo "</select></div><div><p class='h3'><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</p>";
 	$opts = array('structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers');
 	foreach($opts as $k => $opt) {
 	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' checked':'')." /> ".$opt."</p>";
 	}
-	echo "</div><div><h3>File format</h3>";
+	echo "</div><div><p class='h3'>File format</p>";
 	$ffo = array('sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word Web','xml'=>'XML','sqlite'=>'SQLite');
 	foreach($ffo as $k => $ff) {
 	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
 	}
-	echo "</div><div><h3>File compression</h3><p><select name='ftype'>";
+	echo "</div><div><p class='h3'>File compression</p><p><select name='ftype'>";
 	$fty = array('plain'=>'None','gzip'=>'GZ','zip'=>'Zip');
 	foreach($fty as $k => $ft) {
 	echo "<option value='{$k}'>{$ft}</option>";
@@ -1400,7 +1397,6 @@ case "32"://export
 					$sql.= ";\n\n";
 				}
 			}
-			$sql.= "\n";
 			}
 			if(in_array('trigger',$fopt)) {//check option data
 				$q_ttgr= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
@@ -1528,15 +1524,15 @@ case "32"://export
 		}
 		$sql .='</Workbook>';
 	} elseif($ffmt[0]=='xml') {//xml format
-		$tbs= array_merge($tbs, $vws);
+		$tbvws= array_merge($tbs, $vws);
 		$ffty= "application/xml"; $ffext= ".xml"; $fname=$db.$ffext;
 		$sql ='<?xml version="1.0" encoding="utf-8"?>';
-		$sql .="\n<!-- EdMyAdmin $version XML Dump -->\n";
+		$sql .="\n<!-- EdLiteAdmin $version XML Dump -->\n";
 		$sql .="<export version=\"1.0\" xmlns:ed=\"https://github.com/edmondsql\">";
 		if(in_array('structure',$fopt)) {
 		$sql .="\n\t<ed:structure_schemas>";
 		$sql .="\n\t\t<ed:database name=\"$db\">";
-		foreach($tbs as $tb) {
+		foreach($tbvws as $tb) {
 		$sql .="\n\t\t\t<ed:table name=\"$tb\">\n";
 		$sql .=	$ed->tb_structure($tb,$fopt,"\t\t\t");
 		$sql .="\t\t\t</ed:table>";
@@ -1544,23 +1540,23 @@ case "32"://export
 		$sql .="\n\t\t</ed:database>\n\t</ed:structure_schemas>";
 		}
 		if(in_array('data',$fopt)) {
-		$sql .="\n\t<database name=\"$db\">";
+		$sq ="\n\t<database name=\"$db\">";
 		foreach($tbs as $tb) {
 		$q_xm1 = $ed->con->query("PRAGMA table_info(".$tb.")")->fetch(1);
 		$q_xm2 = $ed->con->query("SELECT * FROM ".$tb)->fetch(1);
 		foreach($q_xm2 as $r_=>$r_xm2) {
-			$sql .="\n\t\t<table name=\"$tb\">";
+			$sq .="\n\t\t<table name=\"$tb\">";
 			$x=0;
 			foreach($r_xm2 as $r_x2) {
-			$sql .="\n\t\t\t<column name=\"".$q_xm1[$x][1]."\">".addslashes(htmlspecialchars($r_x2))."</column>";
+			$sq .="\n\t\t\t<column name=\"".$q_xm1[$x][1]."\">".addslashes(htmlspecialchars($r_x2))."</column>";
 			++$x;
 			}
-			$sql .="\n\t\t</table>";
+			$sq .="\n\t\t</table>";
 		}
 		}
-		$sql .="\n\t</database>";
+		$sq .="\n\t</database>";
 		}
-		$sql .="\n</export>";
+		$sql .= (empty($tbs)?'':$sq)."\n</export>";
 	} elseif($ffmt[0]=='sqlite') {//sqlite format
 		$ffty= "application/octet-stream"; $ffext= $ed->ext; $fname= $db.$ffext;
 		$sql = file_get_contents($ed->dir.$db.$ed->ext);
@@ -1774,7 +1770,7 @@ case "50": //login
 	}
 	session_unset();
 	session_destroy();
-	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3>
+	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><p class='h3'>LOGIN</p>
 	<div>Password<br/><input type='password' id='passwd' name='password' /></div>
 	<div><button type='submit'>Login</button></div></div></form>";
 break;
@@ -1802,7 +1798,7 @@ case "60": //info
 	$q_var= array('Use extension'=>$lty,'SQLite'=>$vv,'PHP'=>PHP_VERSION,'Software'=>$_SERVER['SERVER_SOFTWARE']);
 	foreach($q_var as $r_k=>$r_var) {
 	$bg=($bg==1)?2:1;
-	echo "<tr class='r c$bg'><td class='dot'>".$r_k."</td><td class='dot'>".$r_var."</td></tr>";
+	echo "<tr class='r c$bg'><td>".$r_k."</td><td>".$r_var."</td></tr>";
 	}
 	echo "</table>";
 break;
