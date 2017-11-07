@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.8.8";
+$version="3.9";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -162,32 +162,18 @@ class ED {
 		}
 		header('Location: '.$this->path.$way);exit;
 	}
-	public function menu($db='', $tb='', $left='', $sp=array()) {
-		$srch=((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
-		$str='';
-		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>Databases</a></li>";
-		if($db!='' && $db!=1) $str .= "<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
-
-		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
-		$str .=($db==""?"":"</ul><br class='clear'/></div>");
-
-		if($db!="" && $db!=1) $str .="<div class='l3'>&nbsp;Database: <b>$db</b>".($tb==""?"":" Table: <b>$tb</b>".$srch).(count($sp) >1 ?" ".$sp[0].": <b>".$sp[1]."</b>":"")."</div>";
-		$str .="<div class='container'>";
-		if($left==2) $str .="<div class='col3'>";
-
-		$f=1;$nrf_op='';
-		while($f<50) {
-		$nrf_op.= "<option value='$f'>$f</option>";
-		++$f;
+	public function listdb() {
+		$dbs= array();
+		$dh = @opendir($this->dir);
+		while(($dbe = readdir($dh)) != false) {
+			preg_match("/(\\".$this->ext.")$/i",$dbe,$dbext);
+			if(@is_file($this->dir.$dbe) && end($dbext) == $this->ext) {
+				$dbs[] = basename($dbe, $this->ext);
+			}
 		}
-		if($left==1) $str .= "<div class='col1'><p class='h3'>SQL Query</p>
-		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
-		<p class='h3'>Import</p><small>sql, csv, json, xml, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
-		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
-		<p class='h3'>Create Table</p>".$this->form("6/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
-		<p class='h3'>Rename DB</p>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
-		<p class='h3'>Create</p><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
-		return $str;
+		closedir($dh);
+		sort($dbs);
+		return $dbs;
 	}
 	public function check($level=array(), $param=array()) {
 		if(!empty($_SESSION['ltoken'])) {
@@ -232,6 +218,46 @@ class ED {
 		$q_sp = $this->con->query("SELECT 1 FROM sqlite_master WHERE name='".$this->sg[2]."' AND type='$sg3'", true)->fetch();
 		if(!$q_sp) $this->redir("5/".$db,array('err'=>"Not available object"));
 		}
+	}
+	public function menu($db='', $tb='', $left='', $sp=array()) {
+		$srch=((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
+		$str='';
+		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>Databases</a></li>";
+		if($db!='' && $db!=1) $str .= "<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
+
+		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
+		$str.=($db==""?"":"</ul><br class='clear'/></div>");
+
+		if($db!="" && $db!=1) {
+		$str.="<div class='l3 auto2'>&nbsp;Database: <select onchange='location=this.value;'>";
+		foreach($this->listdb() as $udb) $str.="<option value='{$this->path}5/$udb'".($udb==$db?" selected":"").">$udb</option>";
+		$str.="</select>";
+		$q_ts=array();
+		if($tb!="" || count($sp) >1) {
+		$q_ts= $this->con->query("SELECT name FROM sqlite_master WHERE type='table' or type='view'")->fetch(1);
+		$sl2="<select onchange='location=this.value;'>";
+		foreach($q_ts as $r_ts) $sl2.="<option value='{$this->path}20/$db/".$r_ts[0]."'".($r_ts[0]==$tb || (count($sp) >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
+		$sl2.="</select>";
+		if($tb!="") $str.=" Table: ".$sl2.$srch;
+		if(count($sp) >1) $str.=" ".$sp[0].": ".$sl2;
+		}
+		$str.="</div>";
+		}
+		$str.="<div class='container'>";
+		if($left==2) $str .="<div class='col3'>";
+		$f=1;$nrf_op='';
+		while($f<50) {
+		$nrf_op.= "<option value='$f'>$f</option>";
+		++$f;
+		}
+		if($left==1) $str .= "<div class='col1'><h3>SQL Query</h3>
+		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
+		<h3>Import</h3><small>sql, csv, json, xml, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
+		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
+		<h3>Create Table</h3>".$this->form("6/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
+		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
+		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
+		return $str;
 	}
 	public function pg_number($pg, $totalpg) {
 		if($totalpg > 1) {
@@ -373,26 +399,13 @@ class ED {
 		}
 		return $val;
 	}
-	public function listdb() {
-		$dbs= array();
-		$dh = @opendir($this->dir);
-		while(($dbe = readdir($dh)) != false) {
-			preg_match("/(\\".$this->ext.")$/i",$dbe,$dbext);
-			if(@is_file($this->dir.$dbe) && end($dbext) == $this->ext) {
-				$dbs[] = basename($dbe, $this->ext);
-			}
-		}
-		closedir($dh);
-		sort($dbs);
-		return $dbs;
-	}
 }
 $ed= new ED;
 $head= '<!DOCTYPE html><html><head>
 <title>EdLiteAdmin</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <style type="text/css">
-* {margin:0;padding:0;font-size: 12px;color:#333;font-family:Arial}
+* {margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
 html {-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
 html, textarea {overflow:auto}
 .container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;position:relative}
@@ -403,14 +416,14 @@ html, textarea {overflow:auto}
 small {font-size:9px}
 .clear {clear:both}
 .cntr {text-align:center}
-.right, .link {float:right}
+.right,.link {float:right}
 .link {padding:3px 0}
 .pg * {padding:0 2px;width:auto}
 caption {font-weight:bold;text-decoration:underline}
 .l2 ul {list-style:none}
 .l2 li,.left {float:left}
 .left button {margin:0 1px}
-.h3 {background:#cdf;text-decoration:overline;margin-top:1px;padding:2px 0}
+h3 {background:#cdf;margin-top:1px;padding:2px 0}
 a {color:#842;text-decoration:none;background-color:transparent}
 a:hover {text-decoration:underline}
 a,a:active,a:hover {outline:0}
@@ -440,8 +453,9 @@ textarea, .he {min-height:90px}
 .col2 table {margin:3px 3px 0 3px}
 .col3 table, .dw {margin:3px auto}
 .dw div {padding-top:3px}
+.auto button,.auto input,.auto select {width:auto}
+.auto2 select {width:auto;border:0;padding:0;background:#fe3}
 
-.auto button, .auto input {width:auto}
 .l1,.l2,.l3 {width:100%}
 .msg,.a {cursor:pointer}
 </style>
@@ -1302,23 +1316,23 @@ case "31"://export form
 	}
 	}
 	if($ex > 0) {
-	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><p class='h3 l1'>Export</p><div><p class='h3'>Select table(s)</p>
+	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
 	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>".$tts."</option>";
 	}
-	echo "</select></div><div><p class='h3'><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</p>";
+	echo "</select></div><div><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
 	$opts = array('structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers');
 	foreach($opts as $k => $opt) {
 	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' checked':'')." /> ".$opt."</p>";
 	}
-	echo "</div><div><p class='h3'>File format</p>";
+	echo "</div><div><h3>File format</h3>";
 	$ffo = array('sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word Web','xml'=>'XML','sqlite'=>'SQLite');
 	foreach($ffo as $k => $ff) {
 	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
 	}
-	echo "</div><div><p class='h3'>File compression</p><p><select name='ftype'>";
+	echo "</div><div><h3>File compression</h3><p><select name='ftype'>";
 	$fty = array('plain'=>'None','gzip'=>'GZ','zip'=>'Zip');
 	foreach($fty as $k => $ft) {
 	echo "<option value='{$k}'>{$ft}</option>";
@@ -1770,7 +1784,7 @@ case "50": //login
 	}
 	session_unset();
 	session_destroy();
-	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><p class='h3'>LOGIN</p>
+	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3>
 	<div>Password<br/><input type='password' id='passwd' name='password' /></div>
 	<div><button type='submit'>Login</button></div></div></form>";
 break;
