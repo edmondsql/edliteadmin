@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.9";
+$version="3.9.1";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -232,14 +232,14 @@ class ED {
 		$str.="<div class='l3 auto2'>&nbsp;Database: <select onchange='location=this.value;'>";
 		foreach($this->listdb() as $udb) $str.="<option value='{$this->path}5/$udb'".($udb==$db?" selected":"").">$udb</option>";
 		$str.="</select>";
-		$q_ts=array();
-		if($tb!="" || count($sp) >1) {
+		$q_ts=array(); $c_sp=count($sp);
+		if($tb!="" || $c_sp >1) {
 		$q_ts= $this->con->query("SELECT name FROM sqlite_master WHERE type='table' or type='view'")->fetch(1);
 		$sl2="<select onchange='location=this.value;'>";
-		foreach($q_ts as $r_ts) $sl2.="<option value='{$this->path}20/$db/".$r_ts[0]."'".($r_ts[0]==$tb || (count($sp) >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
+		foreach($q_ts as $r_ts) $sl2.="<option value='{$this->path}20/$db/".$r_ts[0]."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
 		$sl2.="</select>";
 		if($tb!="") $str.=" Table: ".$sl2.$srch;
-		if(count($sp) >1) $str.=" ".$sp[0].": ".$sl2;
+		if($c_sp >1) $str.=" ".$sp[0].": ".($sp[0]=='view'?$sl2:$sp[1]);
 		}
 		$str.="</div>";
 		}
@@ -254,7 +254,7 @@ class ED {
 		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
 		<h3>Import</h3><small>sql, csv, json, xml, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
 		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
-		<h3>Create Table</h3>".$this->form("6/$db")."Table Name<br/><input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
+		<h3>Create Table</h3>".$this->form("6/$db")."<input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
 		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
 		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
 		return $str;
@@ -496,13 +496,13 @@ if(el="fopt[]") opt();
 function opt(){
 var opt=document.getElementsByName("fopt[]"),ft=document.getElementsByName("ffmt[]"),from=2,to=opt.length,ch="";
 for(var j=0;ft[j];++j){if(ft[j].checked) ch=ft[j].value;}
-if(ch=="csv1" || ch=="csv2" || ch=="json" || ch=="xls" || ch=="sqlite"){
-for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
+if(ch=="sql"){
+for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
 }else if(ch=="doc" || ch=="xml"){
 for(var k=0;k<from;k++) opt[k].parentElement.style.display="block";
 for(var k=2;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=false;}
-}else if(ch=="sql"){
-for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
+}else{
+for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
 }
 }
 </script>
