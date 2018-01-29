@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.9.1";
+$version="3.9.2";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -232,7 +232,7 @@ class ED {
 		$str.="<div class='l3 auto2'>&nbsp;Database: <select onchange='location=this.value;'>";
 		foreach($this->listdb() as $udb) $str.="<option value='{$this->path}5/$udb'".($udb==$db?" selected":"").">$udb</option>";
 		$str.="</select>";
-		$q_ts=array(); $c_sp=count($sp);
+		$q_ts=array(); $c_sp=!empty($sp) ? count($sp):"";
 		if($tb!="" || $c_sp >1) {
 		$q_ts= $this->con->query("SELECT name FROM sqlite_master WHERE type='table' or type='view'")->fetch(1);
 		$sl2="<select onchange='location=this.value;'>";
@@ -1196,7 +1196,7 @@ case "30"://import
 	$out="";
 	$q=0;
 	set_time_limit(7200);
-	$rgex = "~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/)|((?is)(BEGIN.*?END)|\"[^\"]*\"|'[^'|\\\']*')(*SKIP)(*F)|;~";
+	$rgex ="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/;*)|\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
 	if($ed->post('qtxt','!e')) {//in textarea
 		$e= preg_split($rgex, $ed->post('qtxt'), -1, PREG_SPLIT_NO_EMPTY);
 	} elseif($ed->post('send','i') && $ed->post('send') == "ja") {//from file
