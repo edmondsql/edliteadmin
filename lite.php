@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.9.2";
+$version="3.9.3";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
 $jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -1374,27 +1374,27 @@ case "32"://export
 		$ffty= "text/plain"; $ffext= ".sql"; $fname= $db.$ffext;
 		$sql="-- EdLiteAdmin $version SQL Dump\n\n";
 		if(!empty($fopt)) {
-			$val='';
 			foreach($tbs as $tb) {
-			if(in_array('structure',$fopt)) {//begin structure
-				$sql .= $ed->tb_structure($tb,$fopt);
-			}
-			if(in_array('data',$fopt)) {//check option data
-				$res2 = $ed->con->query("SELECT * FROM ".$tb);
-				$nr= $res2->num_col();
-				foreach($res2->fetch(1) as $row) {
-					$ro= "\nINSERT INTO $tb VALUES(";
-					$i=0;
-					while($i < $nr) {
-						if(is_numeric($row[$i])) $ro.= $row[$i].",";
-						else $ro.= "'".preg_replace(array("/\r\n|\r|\n/","/'/"),array("\\n","''"),$row[$i])."',";
-						++$i;
-					}
-					$val.= substr($ro,0,-1).");";
+				if(in_array('structure',$fopt)) {//begin structure
+					$sql .= $ed->tb_structure($tb,$fopt);
 				}
-				$sql.= $val."\n";
-			}
-			$sql.= "\n";
+				$val='';
+				if(in_array('data',$fopt)) {//check option data
+					$res2 = $ed->con->query("SELECT * FROM ".$tb);
+					$nr= $res2->num_col();
+					foreach($res2->fetch(1) as $row) {
+						$ro= "\nINSERT INTO $tb VALUES(";
+						$i=0;
+						while($i < $nr) {
+							if(is_numeric($row[$i])) $ro.= $row[$i].",";
+							else $ro.= "'".preg_replace(array("/\r\n|\r|\n/","/'/"),array("\\n","''"),$row[$i])."',";
+							++$i;
+						}
+						$val.= substr($ro,0,-1).");";
+					}
+					$sql.= $val."\n";
+				}
+				$sql.= "\n";
 			}
 			if($vws != '' && in_array('structure',$fopt)) {//export views
 			foreach($vws as $vw) {
