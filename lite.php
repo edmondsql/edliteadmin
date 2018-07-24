@@ -6,10 +6,10 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.9.3";
+$version="3.9.4";
 $bbs= array('False','True');
 $deny= array('sqlite_sequence');
-$jquery= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
+$js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
 class DBT {
 	public static $litetype= array('sqlite3','pdo_sqlite');
 	private static $instance = NULL;
@@ -32,10 +32,10 @@ class DBT {
 	public function query($sql, $single=false) {
 		try{
 			if($this->ltype == self::$litetype[0]) {
-				if($single == false) $this->_query= $this->_cnx->query($sql);
-				else $this->_query= $this->_cnx->querySingle($sql);
+			if($single == false) $this->_query= $this->_cnx->query($sql);
+			else $this->_query= $this->_cnx->querySingle($sql);
 			} else {
-				$this->_query= $this->_cnx->query($sql);
+			$this->_query= $this->_cnx->query($sql);
 			}
 			return $this;
 		} catch(Exception $e) {
@@ -54,10 +54,8 @@ class DBT {
 		if($this->ltype == self::$litetype[0]) {
 		if($mode > 0) {
 			switch($mode){
-			case 1: $ty = SQLITE3_NUM;
-			break;
-			case 2: $ty = SQLITE3_ASSOC;
-			break;
+			case 1: $ty = SQLITE3_NUM; break;
+			case 2: $ty = SQLITE3_ASSOC; break;
 			}
 			$res = array();
 			while($row = $this->_query->fetchArray($ty)) {
@@ -70,10 +68,8 @@ class DBT {
 		} else {
 		if($mode > 0) {
 			switch($mode){
-			case 1: $ty = PDO::FETCH_NUM;
-			break;
-			case 2: $ty = PDO::FETCH_ASSOC;
-			break;
+			case 1: $ty = PDO::FETCH_NUM; break;
+			case 2: $ty = PDO::FETCH_ASSOC; break;
 			}
 			$res = array();
 			while($row = $this->_query->fetch($ty)) {
@@ -459,7 +455,7 @@ textarea, .he {min-height:90px}
 .l1,.l2,.l3 {width:100%}
 .msg,.a {cursor:pointer}
 </style>
-<script src="'.$jquery.'" type="text/javascript"></script>
+<script src="'.$js.'" type="text/javascript"></script>
 <script type="text/javascript">
 $(document).ready(function(){
 $("#passwd").focus();
@@ -467,20 +463,20 @@ $("noscript").remove();
 '.((empty($_SESSION['ok']) && empty($_SESSION['err'])) ? '':'$("body").fadeIn().prepend("'.
 (!empty($_SESSION['ok']) ? '<div class=\"msg ok\">'.$_SESSION['ok'].'<\/div>':'').
 (!empty($_SESSION['err']) ? '<div class=\"msg err\">'.$_SESSION['err'].'<\/div>':'').'");
-setTimeout(function(){$(".msg").fadeOut("slow",function(){$(this).remove();});}, 7000);').'
-$(".del").click(function(e){//confirm
+setTimeout(function(){$(".msg").fadeOut(1000,function(){$(this).remove();});}, 7000);').'
+$(".del").on("click",function(e){
 e.preventDefault();
 $(".msg").remove();
 var but=$(this);
-$("body").fadeIn("slow").prepend("<div class=\"msg\"><div class=\"ok\">Yes<\/div><div class=\"err\">No<\/div><\/div>");
-$(".msg .ok").click(function(){window.location = but.prop("href");});
-$(".msg .err").click(function(){$(".msg").remove();});
-$(document).keyup(function(e){
+$("body").fadeIn(1000).prepend("<div class=\"msg\"><div class=\"ok\">Yes<\/div><div class=\"err\">No<\/div><\/div>");
+$(".msg .ok").on("click",function(){window.location = but.prop("href");});
+$(".msg .err").on("click",function(){$(".msg").remove();});
+$(document).on("keyup",function(e){
 if(e.which==89 || e.which==32) window.location=but.prop("href");
 if(e.which==27 || e.which==78) $(".msg").remove();
 });
 });
-$(".msg").dblclick(function(){$(this).hide()});
+$(".msg").on("dblclick",function(){$(this).hide()});
 $(".more").hover(function(){$(".more div").fadeIn();},function(){$(".more div").fadeOut(100);});
 });
 function selectall(cb,lb){
