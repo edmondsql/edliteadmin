@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.11.0";
+$version="3.11.1";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -401,10 +401,10 @@ class ED {
 	}
 }
 $ed= new ED;
-$head= '<!DOCTYPE html><html><head>
+$head= '<!DOCTYPE html><html lang="en"><head>
 <title>EdLiteAdmin</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<style type="text/css">
+<style>
 * {margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
 html {-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
 html, textarea {overflow:auto}
@@ -913,13 +913,14 @@ case "20"://table browse
 	$q_vws= $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
 	echo $head.$ed->menu($db,($q_vws=='view'?'':$tb),1,($q_vws=='view'?['view',$tb]:''))."<table><tr>";
 	if($q_vws != 'view') echo "<th>ACTIONS</th>";
-	foreach($r_col[0] as $k=>$v) echo "<th>". $k."</th>";
-	echo "</tr>";
-	$rinf= [];
 	$q_ti = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
+	$rinf= [];
 	foreach($q_ti as $r_ti) {
-	if(array_key_exists($r_ti[1],$r_col[0])) $rinf[$r_ti[1]]= $r_ti[2];
+	echo "<th>". $r_ti[1]."</th>";
+	if($r_col && array_key_exists($r_ti[1],$r_col[0])) $rinf[$r_ti[1]]= $r_ti[2];
 	}
+	echo "</tr>";
+	if($r_col) {
 	$key = array_keys($r_col[0]);
 	foreach($r_col as $row) {
 		$bg=($bg==1)?2:1;
@@ -948,8 +949,9 @@ case "20"://table browse
 		}
 		echo "</tr>";
 	}
-	$ed->con= null;
+	}
 	echo "</table>";
+	$ed->con= null;
 	if(empty($select)) echo $ed->pg_number($pg, $totalpg);
 	else unset($_SESSION['_lite_select']);
 break;
