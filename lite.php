@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.11.1";
+$version="3.11.2";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -916,8 +916,10 @@ case "20"://table browse
 	$q_ti = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	$rinf= [];
 	foreach($q_ti as $r_ti) {
-	echo "<th>". $r_ti[1]."</th>";
-	if($r_col && array_key_exists($r_ti[1],$r_col[0])) $rinf[$r_ti[1]]= $r_ti[2];
+		if($r_col && array_key_exists($r_ti[1],$r_col[0])) {
+		$rinf[$r_ti[1]]= $r_ti[2];
+		echo "<th>".$r_ti[1]."</th>";
+		} elseif(empty($r_col)) echo "<th>".$r_ti[1]."</th>";
 	}
 	echo "</tr>";
 	if($r_col) {
