@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.11.2";
+$version="3.11.3";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -112,7 +112,7 @@ class ED {
 		return "<form action='".$this->path.$furl."' method='post'".($enc==1 ? " enctype='multipart/form-data'":"").">";
 	}
 	public function fieldtype($slct='') {
-		$fieldtype= ['Numbers'=>["INTEGER","INT","BIGINT","DECIMAL"],'Strings'=>["VARCHAR","TEXT"],'DateTime'=>["DATE","DATETIME","TIME","TIMESTAMP"],'Binary'=>["BOOLEAN","BLOB"]];
+		$fieldtype= ['Numbers'=>["INTEGER","INT","DECIMAL"],'Strings'=>["VARCHAR","TEXT"],'DateTime'=>["DATE","DATETIME","TIME","TIMESTAMP"],'Binary'=>["BOOLEAN","BLOB"]];
 		$ft='';
 		foreach($fieldtype as $fdk=>$fdtype) {
 		if(is_array($fdtype)) {
@@ -242,7 +242,7 @@ class ED {
 		}
 		if($left==1) $str .= "<div class='col1'><h3>Import sql / Run select</h3>
 		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
-		<h3>Import</h3><small>sql, csv, json, xml, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
+		<h3>Import</h3><small>sql, csv, json, xml, db, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
 		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
 		<h3>Create Table</h3>".$this->form("6/$db")."<input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
 		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
@@ -389,13 +389,16 @@ class ED {
 		}
 		return $val;
 	}
-	public function sql_replace($qry,$old,$new,$key='',$tb='') {
+	public function sql_replace($old,$new,$ty='',$tbl='') {
+		$qry= $this->con->query("SELECT name,sql FROM sqlite_master WHERE type='$ty'".($tbl==''?"":" AND tbl_name='$tbl'"))->fetch(1);
+		if($qry) {
 		foreach($qry as $r_qry) {
-		if(empty($key) || $key=='i1' || ($key == 'v1' && stripos($r_qry[1]," ".$old)!= false)) {
-		if($r_qry[1] && $key=='i1') preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_qry[1], $r_sql);
-		$repl= preg_replace("/\b($old)\b/i",$new,($key=='i1'?$r_sql[2]:$r_qry[1]));
-		if($key=='i1') $repl = $r_sql[1].$repl.")";
-		$this->con->exec("UPDATE sqlite_master SET sql=\"$repl\" WHERE name='".$r_qry[0]."'".($key=='i1'?" AND type='index' AND tbl_name='$tb'":""));
+		if(empty($key) || $key=='index' || ($key == 'view' && stripos($r_qry[1]," ".$old)!= false)) {
+		if($r_qry[1] && $key=='index') preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_qry[1], $r_sql);
+		$repl= preg_replace("/\b($old)\b/i",$new,($key=='index'?$r_sql[2]:$r_qry[1]));
+		if($key=='index') $repl = $r_sql[1].$repl.")";
+		$this->con->exec("UPDATE sqlite_master SET sql=\"$repl\" WHERE name='".$r_qry[0]."'".($key=='index'?" AND type='index'":""));
+		}
 		}
 		}
 	}
@@ -658,12 +661,9 @@ case "9":
 		$new= $ed->sanitize($ed->post('rtab'));
 		$ed->con->exec("PRAGMA writable_schema=1");
 		$ed->con->exec("BEGIN TRANSACTION");
-		$q_rvtb= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
-		$q_rvtg= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
 		$ren_tb= $ed->con->exec("ALTER TABLE $tb RENAME TO ".$new);
 		if($ren_tb === false) $ed->redir("10/$db/$tb",array('err'=>"Can't rename"));
-		if($q_rvtb) $ed->sql_replace($q_rvtb,$tb,$new);
-		if($q_rvtg) $ed->sql_replace($q_rvtg,$tb,$new);
+		$ed->sql_replace($tb,$new,'view');
 		$ed->con->exec("COMMIT");
 		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->redir("5/".$db,array('ok'=>"Successfully renamed"));
@@ -698,7 +698,7 @@ case "9":
 	}
 	if(!empty($ed->sg[3])) {//drop index
 		$s_idx= base64_decode($ed->sg[3]);
-		$ed->con->query("PRAGMA foreign_keys=OFF");
+		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		$q_ii = $ed->con->exec("DROP INDEX ".$s_idx);
 		if($q_ii === false) $ed->redir("10/$db/".$tb,['err'=>"Can't drop index"]);
 		else $ed->redir("10/$db/".$tb,['ok'=>"Successfully dropped"]);
@@ -766,32 +766,30 @@ case "12"://change field structure
 	$f= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	if($ed->post('change','i')) {
 		$qr='';$pk='';
+		$fn2 = $ed->sanitize($ed->post("cf1"));
 		foreach($f as $e) {
 		if($e[1]==$fn1){
-			$fn2 = $ed->sanitize($ed->post("cf1"));
 			if(empty($fn2) || is_numeric(substr($fn2,0,1))) $ed->redir("10/$db/$tb",['err'=>"Not a valid field name"]);
 			$qr.= $fn2." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf4')==1 ? " NOT NULL":"").($ed->post("cf5","e")?"":" DEFAULT '".$ed->post("cf5")."'").",";
-			$pk.= ($e[5]==1 ? $fn2.",":"");
 		} else {
 			$qr.= $e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " DEFAULT ".$e[4]:"").",";
-			$pk.= ($e[5]==1 ? $e[1].",":"");
+		}
+		if($e[5]>0) {
+		$pk.=($e[1]==$fn1 ? $fn2:$e[1]).",";
 		}
 		}
-		$qr.=($pk!='' ? " PRIMARY KEY (".substr($pk,0,-1)."),":"");
+		$qr.=($pk!='' ? " PRIMARY KEY(".substr($pk,0,-1)."),":"");
 		$qrs="CREATE TABLE $tb(".substr($qr,0,-1).")";
 		$ed->con->exec("BEGIN TRANSACTION");
 		$ed->con->exec("PRAGMA writable_schema=1");
 		//rename field in table
 		$ed->con->exec("UPDATE sqlite_master SET sql=\"$qrs\" WHERE name=\"$tb\"");
-		//rename field in index
-		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='{$tb}'")->fetch(1);
-		if($q_idx) $ed->sql_replace($q_idx,$fn1,$fn2,'i1',$tb);
 		//rename field in views
-		$q_rvtab= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
-		if($q_rvtab) $ed->sql_replace($q_rvtab,$fn1,$fn2,'v1');
+		$ed->sql_replace($fn1,$fn2,'view');
+		//rename field in index
+		$ed->sql_replace($fn1,$fn2,'index',$tb);
 		//rename field in triggers
-		$q_rvtig= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
-		if($q_rvtig) $ed->sql_replace($q_rvtig,$fn1,$fn2);
+		$ed->sql_replace($fn1,$fn2,'trigger',$tb);
 		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->con->exec("COMMIT");
 		$ed->con= null;
@@ -832,19 +830,25 @@ case "13"://drop column
 		}
 		//remove field from index
 		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
+		$pk='';
 		if($q_idx) {
+		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		foreach($q_idx as $r_idx) {
 			if($r_idx[1]) {
 			preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
 			$repl= explode(',', $r_prsql[2]);
-			if(count($repl) < 2 && $fn==$repl[0]) {
-			$ed->con->query("PRAGMA foreign_keys=OFF");
+			if(count($r_prsql[2]) < 2 && $fn==$repl[0]) {
 			$ed->con->exec("DROP INDEX ".$r_idx[0]);
 			} else {
 			$po= array_search($fn, $repl);
 			unset($repl[$po]);
 			$repl= implode(',',$repl);
 			$obj[]= $r_prsql[1].$repl.")";
+			}
+			} elseif($r_idx[0] && !$r_idx[1]) {//pk
+			$q_ii= $ed->con->query("PRAGMA index_info('".$r_idx[0]."')")->fetch(2);
+			foreach($q_ii as $r_ii) {
+			if($r_ii['name'] != $fn) $pk.= $r_ii['name'].",";
 			}
 			}
 		}
@@ -859,15 +863,16 @@ case "13"://drop column
 		$qr=''; $re='';
 		foreach($q_f as $r_f) {
 		if($r_f[1]!=$fn){
-			$qr.= $r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").($r_f[5]==1 ? " PRIMARY KEY":"").",";
+			$qr.= $r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").",";
 			$re.= $r_f[1].",";
 		}
 		}
+		if(!empty($pk)) $qr.=" PRIMARY KEY(".substr($pk,0,-1)."),";
 		//drop field from table
-		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_{$tb}");
+		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_".$tb);
 		$ed->con->exec("CREATE TABLE $tb (".substr($qr,0,-1).")");
-		$ed->con->exec("INSERT INTO {$tb} SELECT ".substr($re,0,-1)." FROM temp_{$tb}");
-		$ed->con->exec("DROP TABLE temp_{$tb}");
+		$ed->con->exec("INSERT INTO {$tb} SELECT ".substr($re,0,-1)." FROM temp_".$tb);
+		$ed->con->exec("DROP TABLE temp_".$tb);
 		foreach($obj as $ob) $ed->con->exec($ob);
 		unset($obj);
 		$ed->con->exec("COMMIT");
@@ -1207,7 +1212,7 @@ case "30"://import
 				$e= $ed->imp_json($file['filename'], $tmp);
 			} elseif($fext == 'xml') {//xml file
 				$e= $ed->imp_xml($file['filename'], $tmp);
-			} elseif($fext == 'sqlite' || $fext == substr($ed->ext,1)) {//sqlite file
+			} elseif($fext == 'sqlite' || $fext == 'db' || $fext == substr($ed->ext,1)) {//sqlite file
 				$ed->imp_sqlite($file['filename'], $tmp);
 			} elseif($fext == 'gz') {//gz file
 				if(($fgz = fopen($tmp, 'r')) !== FALSE) {
@@ -1228,7 +1233,7 @@ case "30"://import
 					elseif($e_ext == 'csv') $e= $ed->imp_csv($entr['filename'], $e);
 					elseif($e_ext == 'json') $e= $ed->imp_json($entr['filename'], $e);
 					elseif($e_ext == 'xml') $e= $ed->imp_xml($entr['filename'], $e);
-					elseif($e_ext == 'sqlite' || $e_ext == substr($ed->ext,1)) $ed->imp_sqlite($file['filename'], $e);
+					elseif($e_ext == 'sqlite' || $e_ext == 'db' || $e_ext == substr($ed->ext,1)) $ed->imp_sqlite($file['filename'], $e);
 					else $ed->redir("5/$db",['err'=>"Disallowed extension"]);
 				} else {
 					$ed->redir("5/$db",['err'=>"Can't open GZ file"]);
