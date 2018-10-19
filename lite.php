@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.11.3";
+$version="3.11.4";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -412,10 +412,11 @@ $head= '<!DOCTYPE html><html lang="en"><head>
 html {-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
 html, textarea {overflow:auto}
 .container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;position:relative}
-[hidden],.more div{display:none}
-.more {position:relative}
-.more div a {display:block;padding:0;width:100%}
-.more div {position:absolute;z-index:8}
+[hidden],.dd div{display:none}
+.d {position:absolute;display:inline-block;right:0}
+.dd {display:inline-block}
+.dd div {position:absolute;z-index:8}
+.dd div a,.dd:hover div {display:block}
 small {font-size:9px}
 .clear {clear:both}
 .cntr {text-align:center}
@@ -439,13 +440,14 @@ input[type=text],select {min-width:98px !important}
 select {padding:1px 0}
 optgroup option {padding-left:8px}
 textarea, .he {min-height:90px}
-.msg {position:absolute;top:0;right:0;z-index:9;position:fixed}
+textarea {white-space: pre-wrap}
+.msg {position:absolute;top:0;right:0;z-index:9}
 .ok, .err {padding:8px;font-weight:bold;font-size:13px}
-.ok {background:#EFE;color:#080;border-bottom:2px solid #080}
-.err {background:#FEE;color:#f00;border-bottom:2px solid #f00}
+.ok {background:#efe;color:#080;border-bottom:2px solid #080}
+.err {background:#fee;color:#f00;border-bottom:2px solid #f00}
 .l1, th, caption, button {background:#9be}
 .l2,.c1,.col1 {background:#cdf}
-.c2,.more div a {background:#fff}
+.c2,.dd div {background:#fff}
 .l3, tr:hover.r, button:hover {background:#fe3 !important}
 .ok,.err,.col1,.col2 {display:inline-block;*display:inline;zoom:1}
 .col1 textarea {position: relative;z-index:3}
@@ -460,31 +462,27 @@ textarea, .he {min-height:90px}
 .auto2 select {width:auto;border:0;padding:0;background:#fe3}
 
 .l1,.l2,.l3 {width:100%}
-.msg,.a {cursor:pointer}
+.msg,.dd,.a {cursor:pointer}
 </style>
 <script src="'.$js.'"></script>
 <script>
 $(document).ready(function(){
 $("#passwd").focus();
 $("noscript").remove();
-'.((empty($_SESSION['ok']) && empty($_SESSION['err'])) ? '':'$("body").fadeIn().prepend("'.
-(!empty($_SESSION['ok']) ? '<div class=\"msg ok\">'.$_SESSION['ok'].'<\/div>':'').
-(!empty($_SESSION['err']) ? '<div class=\"msg err\">'.$_SESSION['err'].'<\/div>':'').'");
-setTimeout(function(){$(".msg").fadeOut(1000,function(){$(this).remove();});}, 7000);').'
+if($(".msg").text()!="") setTimeout(function(){$(".msg").fadeOut(1000,function(){$(this).remove();});}, 7000);
 $(".del").on("click",function(e){
 e.preventDefault();
 $(".msg").remove();
-var but=$(this);
-$("body").fadeIn(1000).prepend("<div class=\"msg\"><div class=\"ok\">Yes<\/div><div class=\"err\">No<\/div><\/div>");
-$(".msg .ok").on("click",function(){window.location = but.prop("href");});
+var but=$(this),hrf=but.prop("href");
+$("body").fadeIn(1000).append("<div class=\"msg\"><div class=\"ok\">Yes<\/div><div class=\"err\">No<\/div><\/div>");
+$(".msg .ok").on("click",function(){window.location=hrf;});
 $(".msg .err").on("click",function(){$(".msg").remove();});
 $(document).on("keyup",function(e){
-if(e.which==89 || e.which==32) window.location=but.prop("href");
+if(e.which==89 || e.which==32) window.location=hrf;
 if(e.which==27 || e.which==78) $(".msg").remove();
 });
 });
 $(".msg").on("dblclick",function(){$(this).hide()});
-$(".more").hover(function(){$(".more div").fadeIn();},function(){$(".more div").fadeOut(100);});
 });
 function selectall(cb,lb){
 var multi=document.getElementById(lb);
@@ -509,9 +507,7 @@ for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
 }
 }
 </script>
-</head><body><noscript><h1 class="msg err">Please activate Javascript in your browser!</h1></noscript>
-<div class="l1"><div class="left"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b></div>'.
-(isset($ed->sg[0]) && $ed->sg[0]==50 ? "": '<div class="right"><div class="left more"><span class="a">More <small>&#9660;</small></span><div><a href="'.$ed->path.'60">Info</a></div></div><a href="'.$ed->path.'51">Logout</a></div>').'<br class="clear"/></div>';
+</head><body><noscript><h1 class="msg err">Please activate Javascript in your browser!</h1></noscript>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<div class="d"><div class="dd">More <small>&#9660;</small><div><a href="'.$ed->path.'60">Info</a></div></div><a href="'.$ed->path.'51">Logout</a></div>').'</div>';
 $stru= "<table><caption>TABLE STRUCTURE</caption><tr><th>FIELD</th><th>TYPE</th><th>VALUE</th><th>NULL</th><th>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
