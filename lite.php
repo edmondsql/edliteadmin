@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.11.4";
+$version="3.12.0";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -54,12 +54,12 @@ class DBT {
 		if($this->ltype == self::$litetype[0]) {
 		if($mode > 0) {
 			switch($mode){
-			case 1: $ty = SQLITE3_NUM; break;
-			case 2: $ty = SQLITE3_ASSOC; break;
+			case 1: $ty= SQLITE3_NUM; break;
+			case 2: $ty= SQLITE3_ASSOC; break;
 			}
 			$res = [];
-			while($row = $this->_query->fetchArray($ty)) {
-			$res[] = $row;
+			while($row= $this->_query->fetchArray($ty)) {
+			$res[]= $row;
 			}
 			return $res;
 		} else {
@@ -68,12 +68,12 @@ class DBT {
 		} else {
 		if($mode > 0) {
 			switch($mode){
-			case 1: $ty = PDO::FETCH_NUM; break;
-			case 2: $ty = PDO::FETCH_ASSOC; break;
+			case 1: $ty= FETCH_NUM; break;
+			case 2: $ty= FETCH_ASSOC; break;
 			}
-			$res = [];
-			while($row = $this->_query->fetch($ty)) {
-			$res[] = $row;
+			$res= [];
+			while($row= $this->_query->fetch(PDO::$ty)) {
+			$res[]= $row;
 			}
 			return $res;
 		} else {
@@ -213,10 +213,10 @@ class ED {
 		$srch=((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
 		$str='';
 		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>Databases</a></li>";
-		if($db!='' && $db!=1) $str .= "<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
+		if($db!='' && $db!=1) $str .="<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
 
 		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
-		$str.=($db==""?"":"</ul><br class='clear'/></div>");
+		$str.=($db==""?"":"</ul></div>");
 
 		if($db!="" && $db!=1) {
 		$str.="<div class='l3 auto2'>&nbsp;Database: <select onchange='location=this.value;'>";
@@ -411,56 +411,56 @@ $head= '<!DOCTYPE html><html lang="en"><head>
 * {margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
 html {-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
 html, textarea {overflow:auto}
-.container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;position:relative}
+.container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;position:relative;display:table;width:100%}
 [hidden],.dd div{display:none}
 .d {position:absolute;display:inline-block;right:0}
 .dd {display:inline-block}
-.dd div {position:absolute;z-index:8}
+.dd div {position:absolute;z-index:2}
 .dd div a,.dd:hover div {display:block}
 small {font-size:9px}
-.clear {clear:both}
 .cntr {text-align:center}
 .right,.link {float:right}
 .link {padding:3px 0}
 .pg * {padding:0 2px;width:auto}
 caption {font-weight:bold;text-decoration:underline}
 .l2 ul {list-style:none}
-.l2 li,.left {float:left}
+.left {float:left}
 .left button {margin:0 1px}
-h3 {background:#cdf;margin-top:1px;padding:2px 0}
-a {color:#842;text-decoration:none;background-color:transparent}
+h3 {margin:2px 0 1px;padding:2px 0}
+a {color:#842;text-decoration:none}
 a:hover {text-decoration:underline}
 a,a:active,a:hover {outline:0}
 table a,.l1 a,.l2 a,.col1 a {padding:0 3px}
-table {border-collapse: collapse;border-spacing:0;border-bottom:1px solid #555}
+table {border-collapse:collapse;border-spacing:0;border-bottom:1px solid #555}
 td, th {padding:4px;vertical-align:top}
-input[type=checkbox],input[type=radio]{position: relative;vertical-align: middle;bottom: 1px}
-input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius: 3px;-moz-border-radius: 3px;border-radius: 3px;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box}
+input[type=checkbox],input[type=radio]{position:relative;vertical-align:middle;bottom:1px}
+input[type=text],input[type=password],input[type=file],textarea,button,select {width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius:3px;-moz-border-radius:3px;border-radius:3px;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}
 input[type=text],select {min-width:98px !important}
 select {padding:1px 0}
 optgroup option {padding-left:8px}
 textarea, .he {min-height:90px}
-textarea {white-space: pre-wrap}
+textarea {white-space:pre-wrap}
 .msg {position:absolute;top:0;right:0;z-index:9}
 .ok, .err {padding:8px;font-weight:bold;font-size:13px}
 .ok {background:#efe;color:#080;border-bottom:2px solid #080}
 .err {background:#fee;color:#f00;border-bottom:2px solid #f00}
 .l1, th, caption, button {background:#9be}
-.l2,.c1,.col1 {background:#cdf}
+.l2,.c1,.col1,h3 {background:#cdf}
 .c2,.dd div {background:#fff}
 .l3, tr:hover.r, button:hover {background:#fe3 !important}
-.ok,.err,.col1,.col2 {display:inline-block;*display:inline;zoom:1}
-.col1 textarea {position: relative;z-index:3}
-.col1 button {margin-bottom:1px}
-.col1 {vertical-align:top;padding-left:3px;padding-right:3px}
-.col1 {padding-bottom: 1000%;margin-bottom: -1000%}
+.ok,.err,.l2 li {display:inline-block;*display:inline;zoom:1}
+.col1,.col2 {display:table-cell}
+.col1 {vertical-align:top;padding:0 3px}
 .col1, .dw {width:180px}
-.col2 table {margin:3px 3px 0 3px}
+.col2 table {margin:3px}
 .col3 table, .dw {margin:3px auto}
-.dw div {padding-top:3px}
 .auto button,.auto input,.auto select {width:auto}
 .auto2 select {width:auto;border:0;padding:0;background:#fe3}
-
+.sort tbody tr {cursor:default;position:relative}
+.handle {font:18px/12px Arial;vertical-align:middle}
+.handle:hover {cursor:move}
+.opacity {opacity:0.7;filter:Alpha(opacity=70)}
+.drag {opacity:1;top:3px;left:0}
 .l1,.l2,.l3 {width:100%}
 .msg,.dd,.a {cursor:pointer}
 </style>
@@ -482,8 +482,39 @@ if(e.which==89 || e.which==32) window.location=hrf;
 if(e.which==27 || e.which==78) $(".msg").remove();
 });
 });
-$(".msg").on("dblclick",function(){$(this).hide()});
+$(".msg").on("dblclick",function(){$(this).remove()});
+$(".sort").sort();
 });
+$.fn.sort=function(){
+var base=$(this),els=base.find("tr"),its=base.find(".handle"),drag=false,item;
+its.mousedown(function(event){
+base.css({"-webkit-touch-callout":"none","-webkit-user-select":"none","-khtml-user-select":"none","-moz-user-select":"none","-ms-user-select":"none","user-select":"none"});
+if(event.which===1){
+item=$(this).closest("tr");
+els.addClass("opacity");
+item.addClass("drag");
+drag=true;
+}
+});
+its.mousemove(function(e){
+var hoverItem=$(this).closest("tr"),overTop=false,overBottom=false,hoverItemHeight=hoverItem.outerHeight(),yPos=e.offsetY;
+yPos<(hoverItemHeight/2)?overTop=true:overBottom=true;
+if(item && hoverItem.parent().get(0)===item.parent().get(0)){
+if(drag && overTop) item.insertBefore(hoverItem);
+if(drag && overBottom) item.insertAfter(hoverItem);
+}
+});
+$(document).mouseup(function(){
+base.css({"-webkit-touch-callout":"auto","-webkit-user-select":"auto","-khtml-user-select":"auto","-moz-user-select":"auto","-ms-user-select":"auto","user-select":"auto"});
+els.removeClass("opacity");
+item.removeClass("drag");
+var reord=[];
+base.find("tr").each(function(i,d){reord[i]=$(d).prop("id");});
+drag=false;
+if(els.map(function(){return this.id;}).get().join() != reord)
+$.ajax({type:"POST", url:"'.$ed->path.'9/'.(empty($ed->sg[1])?"":$ed->sg[1]).'/'.(empty($ed->sg[2])?"":$ed->sg[2]).'", data:"reord="+reord, success:function(){$(this).load(location.reload())}});
+});
+}
 function selectall(cb,lb){
 var multi=document.getElementById(lb);
 if(cb.checked) for(var i=0;i<multi.options.length;i++) multi.options[i].selected=true;
@@ -664,9 +695,36 @@ case "9":
 		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->redir("5/".$db,array('ok'=>"Successfully renamed"));
 	}
+	if($ed->post('reord','!e')) {//reorder
+		$q_fd= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
+		$post=$ed->post('reord');
+		$els=explode(",",$post);
+		$s_fd=[]; $n_fd=[]; $s_pk=[]; $n_pk=[];
+		foreach($q_fd as $r_fd) {
+		$s_fd[$r_fd[1]]= $r_fd[1].' '.$r_fd[2].($r_fd[3]==1 ? ' NOT NULL':'').(empty($r_fd[4]) ? '':' DEFAULT '.$r_fd[4]);
+		if($r_fd[5]>0) $s_pk[]=$r_fd[1];
+		}
+		foreach($els as $k=>$el) {
+		$n_fd[$k]= $s_fd[$el];
+		if(in_array($el,$s_pk)) $n_pk[]=$el;
+		}
+		$q_it= $ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type='index' OR type='trigger'")->fetch(1);
+		$ntb= "ssqqlliittee";
+		$r_qs=["BEGIN TRANSACTION"];
+		$r_qs[]="CREATE TABLE ".$ntb.$tb."(".implode(',',$n_fd).(empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk)."))");
+		$r_qs[]="INSERT INTO ".$ntb.$tb."($post) SELECT $post FROM $tb";
+		$r_qs[]="DROP TABLE $tb";
+		$r_qs[]="ALTER TABLE ".$ntb.$tb." RENAME TO $tb";
+		foreach($q_it as $r_it) {
+		if($r_it[0]) $r_qs[]=$r_it[0];
+		}
+		$r_qs[]="COMMIT";
+		foreach($r_qs as $r_q) $ed->con->exec($r_q);
+		exit;
+	}
 	if($ed->post('idx','!e') && is_array($ed->post('idx'))) {//create index
-		$idx = implode(',',$ed->post('idx'));
-		$idn = implode('_',$ed->post('idx'));
+		$idx= implode(',',$ed->post('idx'));
+		$idn= implode('_',$ed->post('idx'));
 		$ed->con->exec("BEGIN TRANSACTION");
 		if($ed->post('primary','i')) {
 			$q_pr = $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$tb'", true)->fetch();
@@ -707,13 +765,13 @@ case "10"://table structure
 	$ed->check([1,2]);
 	$db = $ed->sg[1];
 	$tb = $ed->sg[2];
-	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>TABLE STRUCTURE</caption><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th>FIELD</th><th>TYPE</th><th>NULL</th><th>DEFAULT</th><th>PK</th><th>ACTIONS</th></tr>";
+	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>TABLE STRUCTURE</caption><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th>FIELD</th><th>TYPE</th><th>NULL</th><th>DEFAULT</th><th>PK</th><th>ACTIONS</th></tr><tbody class='sort'>";
 	$q_rec = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec) {
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]==1 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a></td></tr>";
+		echo "<tr id='".$rec[1]."' class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]==1 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span class='handle' title='move'>&#10021;</span></td></tr>";
 	}
-	echo "<tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a> <a href='{$ed->path}27/$db/$tb/vacuum'>Vacuum</a></div></td></tr></table></form>";
+	echo "</tbody><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a> <a href='{$ed->path}27/$db/$tb/vacuum'>Vacuum</a></div></td></tr></table></form>";
 	$q_idx = $ed->con->query("PRAGMA index_list($tb)")->fetch(1);
 	echo "<table><caption>INDEXES</caption><tr><th>NAME</th><th>FIELD</th><th>Unique</th><th>Action</th></tr>";
 	foreach($q_idx as $rc) {
@@ -831,16 +889,16 @@ case "13"://drop column
 		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		foreach($q_idx as $r_idx) {
 			if($r_idx[1]) {
-			preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
-			$repl= explode(',', $r_prsql[2]);
-			if(count($r_prsql[2]) < 2 && $fn==$repl[0]) {
-			$ed->con->exec("DROP INDEX ".$r_idx[0]);
-			} else {
-			$po= array_search($fn, $repl);
-			unset($repl[$po]);
-			$repl= implode(',',$repl);
-			$obj[]= $r_prsql[1].$repl.")";
-			}
+					preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
+					$repl= explode(',', $r_prsql[2]);
+					if(count($r_prsql[2]) < 2 && $fn==$repl[0]) {
+					$obj[]="DROP INDEX ".$r_idx[0];
+					} else {
+					$po= array_search($fn, $repl);
+					if(!empty($po)) unset($repl[$po]);
+					$repl= implode(',',$repl);
+					$obj[]= $r_prsql[1].$repl.")";
+					}
 			} elseif($r_idx[0] && !$r_idx[1]) {//pk
 			$q_ii= $ed->con->query("PRAGMA index_info('".$r_idx[0]."')")->fetch(2);
 			foreach($q_ii as $r_ii) {
@@ -1308,28 +1366,28 @@ case "31"://export form
 	}
 	}
 	if($ex > 0) {
-	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><div><h3>Select table(s)</h3>
+	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><h3>Select table(s)</h3>
 	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p>
 	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>".$tts."</option>";
 	}
-	echo "</select></div><div><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
+	echo "</select><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
 	$opts = ['structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers'];
 	foreach($opts as $k => $opt) {
 	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' checked':'')." /> ".$opt."</p>";
 	}
-	echo "</div><div><h3>File format</h3>";
+	echo "<h3>File format</h3>";
 	$ffo = ['sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word Web','xml'=>'XML','sqlite'=>'SQLite'];
 	foreach($ffo as $k => $ff) {
 	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
 	}
-	echo "</div><div><h3>File compression</h3><p><select name='ftype'>";
+	echo "<h3>File compression</h3><p><select name='ftype'>";
 	$fty = ['plain'=>'None','gzip'=>'GZ','zip'=>'Zip'];
 	foreach($fty as $k => $ft) {
 	echo "<option value='{$k}'>{$ft}</option>";
 	}
-	echo "</select></p></div><div><button type='submit' name='exp'>Export</button></div></div></form>";
+	echo "</select></p><button type='submit' name='exp'>Export</button></div></form>";
 	} else {
 	$ed->redir("5/".$db,["err"=>"No export empty DB"]);
 	}
@@ -1362,7 +1420,7 @@ case "32"://export
 		$fopt=$ed->post('fopt');
 	}
 	}
-	if($ffmt[0]=='sql') {//data sql format
+	if($ffmt[0]=='sql') {//data sql
 		$ffty= "text/plain"; $ffext= ".sql"; $fname= $db.$ffext;
 		$sql="-- EdLiteAdmin $version SQL Dump\n\n";
 		if(!empty($fopt)) {
@@ -1421,7 +1479,7 @@ case "32"://export
 			}
 			$sql.= "\n";
 		}
-	} elseif($ffmt[0]=='csv1' || $ffmt[0]=='csv2') {//csv format
+	} elseif($ffmt[0]=='csv1' || $ffmt[0]=='csv2') {//csv
 		$tbs= array_merge($tbs, $vws);
 		$ffty= "text/csv"; $ffext= ".csv"; $fname= $db.$ffext;
 		$sql= [];
@@ -1454,7 +1512,7 @@ case "32"://export
 			$sql[$tb.$ffext]= $sq;
 		}
 		if(count($tbs)==1 || $ftype=="plain") $sql= $sql[$fname];
-	} elseif($ffmt[0]=='json') {//json format
+	} elseif($ffmt[0]=='json') {//json
 		$tbs= array_merge($tbs, $vws);
 		$ffty= "text/json"; $ffext= ".json"; $fname= $db.$ffext;
 		$sql= [];
@@ -1477,7 +1535,7 @@ case "32"://export
 			$sql[$tb.$ffext]= $sq;
 		}
 		if(count($tbs)==1 || $ftype=="plain") $sql= $sql[$fname];
-	} elseif($ffmt[0]=='doc') {//doc format
+	} elseif($ffmt[0]=='doc') {//doc
 		$tbs= array_merge($tbs, $vws);
 		$ffty= "application/msword"; $ffext= ".doc"; $fname=$db.$ffext;
 		$sql ='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:word" 	xmlns="http://www.w3.org/TR/REC-html40"><!DOCTYPE html><html><head><meta http-equiv="Content-type" content="text/html;charset=utf-8"></head><body>';
@@ -1509,7 +1567,7 @@ case "32"://export
 		$sql.= $wh.$wb;
 		}
 		$sql .='</body></html>';
-	} elseif($ffmt[0]=='xls') {//xls format
+	} elseif($ffmt[0]=='xls') {//xls
 		$tbs= array_merge($tbs, $vws);
 		$ffty= "application/excel"; $ffext= ".xls"; $fname= $db.$ffext;
 		$sql ='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
@@ -1529,7 +1587,7 @@ case "32"://export
 			$sql .=$xh.'</Table></Worksheet>';
 		}
 		$sql .='</Workbook>';
-	} elseif($ffmt[0]=='xml') {//xml format
+	} elseif($ffmt[0]=='xml') {//xml
 		$tbvws= array_merge($tbs, $vws);
 		$ffty= "application/xml"; $ffext= ".xml"; $fname=$db.$ffext;
 		$sql ='<?xml version="1.0" encoding="utf-8"?>';
@@ -1563,7 +1621,7 @@ case "32"://export
 		$sq .="\n\t</database>";
 		}
 		$sql .= (empty($tbs)?'':$sq)."\n</export>";
-	} elseif($ffmt[0]=='sqlite') {//sqlite format
+	} elseif($ffmt[0]=='sqlite') {//sqlite
 		$ffty= "application/octet-stream"; $ffext= $ed->ext; $fname= $db.$ffext;
 		$sql = file_get_contents($ed->dir.$db.$ed->ext);
 	}
