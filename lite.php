@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.12.0";
+$version="3.12.1";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -199,7 +199,7 @@ class ED {
 			}
 		}
 		if(in_array(4,$level)) {//check pagination
-		if(!is_numeric($param['pg']) || $param['pg'] > $param['total'] || $param['pg'] < 1) $this->redir($param['redir'],['err'=>"Invalid page number"]);
+		if(!is_numeric($param['pg']) || $param['pg'] > $param['total'] || $param['pg'] <1) $this->redir($param['redir'],['err'=>"Invalid page number"]);
 		}
 		if(in_array(5,$level)) {//check view, trigger
 		$sp= ['view','trigger'];
@@ -209,27 +209,34 @@ class ED {
 		if(!$q_sp) $this->redir("5/".$db,['err'=>"Not available object"]);
 		}
 	}
-	public function menu($db='', $tb='', $left='', $sp=[]) {
-		$srch=((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
+	public function menu($db='',$tb='',$left='',$sp=[]) {
 		$str='';
 		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>Databases</a></li>";
 		if($db!='' && $db!=1) $str .="<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
-
-		if($tb!="") $str .="<li class='divider'>---</li><li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";
+		$dv="<li class='divider'>---</li>";
+		if($tb!="") $str .=$dv."<li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";//table
+		if(!empty($sp[1]) && $sp[0]=='view') $str .=$dv."<li><a href='{$this->path}40/$db/".$sp[1]."/view'>Structure</a></li><li><a href='{$this->path}20/$db/".$sp[1]."'>Browse</a></li><li><a class='del' href='{$this->path}49/$db/".$sp[1]."/view'>Drop</a></li>";//view
 		$str.=($db==""?"":"</ul></div>");
 
 		if($db!="" && $db!=1) {
-		$str.="<div class='l3 auto2'>&nbsp;Database: <select onchange='location=this.value;'>";
+		$str.="<div class='l3 auto2'><select onchange='location=this.value;'><optgroup label='databases'>";
 		foreach($this->listdb() as $udb) $str.="<option value='{$this->path}5/$udb'".($udb==$db?" selected":"").">$udb</option>";
-		$str.="</select>";
+		$str.="</optgroup></select>";
 		$q_ts=[]; $c_sp=!empty($sp) ? count($sp):"";
 		if($tb!="" || $c_sp >1) {
-		$q_ts= $this->con->query("SELECT name FROM sqlite_master WHERE type='table' or type='view'")->fetch(1);
+		$q_ts= $this->con->query("SELECT name,type FROM sqlite_master WHERE type IN ('table','view','trigger') ORDER BY type")->fetch(1);
 		$sl2="<select onchange='location=this.value;'>";
-		foreach($q_ts as $r_ts) $sl2.="<option value='{$this->path}20/$db/".$r_ts[0]."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
-		$sl2.="</select>";
-		if($tb!="") $str.=" Table: ".$sl2.$srch;
-		if($c_sp >1) $str.=" ".$sp[0].": ".($sp[0]=='view'?$sl2:$sp[1]);
+		$qtype='';
+		foreach($q_ts as $r_ts) {
+		if($qtype != $r_ts[1]) {
+		if($qtype != '') $sl2.='</optgroup>';
+		$sl2.='<optgroup label="'.$r_ts[1].'s">';
+		}
+		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/".$r_ts[0]."/".$r_ts[1]:"20/$db/".$r_ts[0])."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
+		$qtype = $r_ts[1];
+		}
+		if($qtype != '') $sl2.='</optgroup>';
+		$str.=$sl2."</select>".((!empty($_SESSION['_litesearch_'.$db.'_'.$tb]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
 		}
 		$str.="</div>";
 		}
@@ -283,7 +290,7 @@ class ED {
 			if(trim($row) === '') {
 			$row = null;
 			continue;
-			} else if (substr_count($row,'"') % 2 !== 0) {
+			} elseif (substr_count($row,'"') % 2 !== 0) {
 			$row .= PHP_EOL;
 			continue;
 			}
@@ -411,7 +418,7 @@ $head= '<!DOCTYPE html><html lang="en"><head>
 * {margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
 html {-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
 html, textarea {overflow:auto}
-.container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;position:relative;display:table;width:100%}
+.container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;width:100%}
 [hidden],.dd div{display:none}
 .d {position:absolute;display:inline-block;right:0}
 .dd {display:inline-block}
@@ -489,12 +496,7 @@ $.fn.sort=function(){
 var base=$(this),els=base.find("tr"),its=base.find(".handle"),drag=false,item;
 its.mousedown(function(event){
 base.css({"-webkit-touch-callout":"none","-webkit-user-select":"none","-khtml-user-select":"none","-moz-user-select":"none","-ms-user-select":"none","user-select":"none"});
-if(event.which===1){
-item=$(this).closest("tr");
-els.addClass("opacity");
-item.addClass("drag");
-drag=true;
-}
+if(event.which===1){item=$(this).closest("tr");els.addClass("opacity");item.addClass("drag");drag=true;}
 });
 its.mousemove(function(e){
 var hoverItem=$(this).closest("tr"),overTop=false,overBottom=false,hoverItemHeight=hoverItem.outerHeight(),yPos=e.offsetY;
@@ -573,9 +575,9 @@ case "3"://rename db
 	$ed->check([1]);
 	$db = $ed->sg[1];
 	if($ed->post('rdb','!e') && $ed->sanitize($ed->post('rdb')) != $db) {
-		$ndb = $ed->sanitize($ed->post('rdb'));
-		rename($ed->dir.$db.$ed->ext, $ed->dir.$ndb.$ed->ext);
-		$ed->redir("",['ok'=>"Successfully renamed"]);
+	$ndb = $ed->sanitize($ed->post('rdb'));
+	rename($ed->dir.$db.$ed->ext, $ed->dir.$ndb.$ed->ext);
+	$ed->redir("",['ok'=>"Successfully renamed"]);
 	} else $ed->redir("5/".$db,['err'=>"DB name must not be empty"]);
 break;
 
@@ -604,7 +606,7 @@ case "5"://show tables
 	$offset= ($pg - 1) * $step;
 	echo $head.$ed->menu($db,'',1);
 	echo "<table><tr><th>TABLE/VIEW</th><th>ROWS</th><th>ACTIONS</th></tr>";
-	$q_tabs = $ed->con->query("SELECT name,type FROM sqlite_master WHERE type='table' OR type='view' ORDER BY type,name LIMIT $offset, $step")->fetch(1);
+	$q_tabs = $ed->con->query("SELECT name,type FROM sqlite_master WHERE type IN ('table','view') ORDER BY type,name LIMIT $offset, $step")->fetch(1);
 	foreach($q_tabs as $r_tabs) {
 		if(!in_array($r_tabs[0],$deny)) {
 		$q_num = $ed->con->query("SELECT COUNT(*) FROM ".$r_tabs[0], true)->fetch();
@@ -709,7 +711,7 @@ case "9":
 		if(in_array($el,$s_pk)) $n_pk[]=$el;
 		}
 		$q_it= $ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type='index' OR type='trigger'")->fetch(1);
-		$ntb= "ssqqlliittee";
+		$ntb= "edliteadmin";
 		$r_qs=["BEGIN TRANSACTION"];
 		$r_qs[]="CREATE TABLE ".$ntb.$tb."(".implode(',',$n_fd).(empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk)."))");
 		$r_qs[]="INSERT INTO ".$ntb.$tb."($post) SELECT $post FROM $tb";
@@ -739,7 +741,7 @@ case "9":
 			$ed->con->exec("CREATE INDEX pk_{$tb} ON $tb($idx)");
 			$ed->con->exec("PRAGMA writable_schema=1");
 			$ed->con->exec("UPDATE sqlite_master SET name='sqlite_autoindex_{$tb}_1',sql=null WHERE name='pk_{$tb}'");
-			$ed->con->exec("UPDATE sqlite_master SET sql=\"CREATE TABLE $tb(".$r_sql.", PRIMARY KEY($idx))\" WHERE name='$tb'");
+			$ed->con->exec("UPDATE sqlite_master SET sql=\"CREATE TABLE $tb(".$r_sql.",PRIMARY KEY($idx))\" WHERE name='$tb'");
 			$ed->con->exec("PRAGMA writable_schema=0");
 		} elseif($ed->post('unique','i')) {
 			$ed->con->exec("CREATE UNIQUE INDEX UNI__$idn ON $tb($idx)");
@@ -836,13 +838,13 @@ case "12"://change field structure
 		$qrs="CREATE TABLE $tb(".substr($qr,0,-1).")";
 		$ed->con->exec("BEGIN TRANSACTION");
 		$ed->con->exec("PRAGMA writable_schema=1");
-		//rename field in table
+		//rename in table
 		$ed->con->exec("UPDATE sqlite_master SET sql=\"$qrs\" WHERE name=\"$tb\"");
-		//rename field in views
+		//rename in views
 		$ed->sql_replace($fn1,$fn2,'view');
-		//rename field in index
+		//rename in index
 		$ed->sql_replace($fn1,$fn2,'index',$tb);
-		//rename field in triggers
+		//rename in triggers
 		$ed->sql_replace($fn1,$fn2,'trigger',$tb);
 		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->con->exec("COMMIT");
@@ -852,11 +854,11 @@ case "12"://change field structure
 		echo $head.$ed->menu($db,$tb,2).$ed->form("12/$db/$tb/$fn1").$stru;
 		foreach($f as $d) {
 			if($d[1]==$fn1){
-				$d_val= preg_split("/[()]+/", $d[2], -1, PREG_SPLIT_NO_EMPTY);
-				echo "<tr><td><input type='text' name='cf1' value='".$d[1]."' /></td><td><select name='cf2'>".$ed->fieldtype(strtoupper($d_val[0])).
-				"</select></td><td><input type='text' name='cf3' value='".(isset($d_val[1])?$d_val[1]:"")."' /></td>
-				<td><select name='cf4'><option value='0'>Yes</option><option value='1'".($d[3]!=0 ? " selected":"").">No</option></select></td>
-				<td><input type='text' name='cf5' value='".str_replace("'","",$d[4])."' /></td></tr>";
+			$d_val= preg_split("/[()]+/", $d[2], -1, PREG_SPLIT_NO_EMPTY);
+			echo "<tr><td><input type='text' name='cf1' value='".$d[1]."' /></td><td><select name='cf2'>".$ed->fieldtype(strtoupper($d_val[0])).
+			"</select></td><td><input type='text' name='cf3' value='".(isset($d_val[1])?$d_val[1]:"")."' /></td>
+			<td><select name='cf4'><option value='0'>Yes</option><option value='1'".($d[3]!=0 ? " selected":"").">No</option></select></td>
+			<td><input type='text' name='cf5' value='".str_replace("'","",$d[4])."' /></td></tr>";
 			}
 		}
 		echo "<tr><td class='c1' colspan='5'><button type='submit' name='change'>Change field</button></td></tr></table></form>";
@@ -889,16 +891,16 @@ case "13"://drop column
 		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		foreach($q_idx as $r_idx) {
 			if($r_idx[1]) {
-					preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
-					$repl= explode(',', $r_prsql[2]);
-					if(count($r_prsql[2]) < 2 && $fn==$repl[0]) {
-					$obj[]="DROP INDEX ".$r_idx[0];
-					} else {
-					$po= array_search($fn, $repl);
-					if(!empty($po)) unset($repl[$po]);
-					$repl= implode(',',$repl);
-					$obj[]= $r_prsql[1].$repl.")";
-					}
+			preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
+			$repl= explode(',', $r_prsql[2]);
+			if(count($r_prsql[2]) < 2 && $fn==$repl[0]) {
+			$obj[]="DROP INDEX ".$r_idx[0];
+			} else {
+			$po= array_search($fn, $repl);
+			if(!empty($po)) unset($repl[$po]);
+			$repl= implode(',',$repl);
+			$obj[]= $r_prsql[1].$repl.")";
+			}
 			} elseif($r_idx[0] && !$r_idx[1]) {//pk
 			$q_ii= $ed->con->query("PRAGMA index_info('".$r_idx[0]."')")->fetch(2);
 			foreach($q_ii as $r_ii) {
@@ -908,10 +910,8 @@ case "13"://drop column
 		}
 		}
 		//all triggers
-		$q_trd = $ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
-		foreach($q_trd as $r_trd) {
-		$obj[] = $r_trd[0];
-		}
+		$q_trd= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
+		foreach($q_trd as $r_trd) $obj[]= $r_trd[0];
 		//prepare fields
 		$q_f= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 		$qr=''; $re='';
@@ -937,9 +937,7 @@ case "13"://drop column
 		if($q_dv) {
 		foreach($q_dv as $r_dv) {
 			preg_match("/\b(".$tb.")\b/i",$r_dv[1],$match);
-			if($match) {
-			$ed->con->exec("DROP VIEW ".$r_dv[0]);
-			}
+			if($match) $ed->con->exec("DROP VIEW ".$r_dv[0]);
 		}
 		}
 		$ed->con->exec("DROP TABLE ".$tb);
@@ -1200,7 +1198,7 @@ case "26"://drop table
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$ed->con->exec("BEGIN TRANSACTION");
-	$q_dv= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//drop view assoc with table
+	$q_dv= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//drop view
 	if($q_dv) {
 	foreach($q_dv as $r_dv) {
 	preg_match("/\b(".$tb.")\b/i",$r_dv[1],$match);
@@ -1231,7 +1229,6 @@ case "30"://import
 	$ed->check([1]);
 	$db= $ed->sg[1];
 	$out="";
-	$q=0;
 	set_time_limit(7200);
 	$rgex ="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/;*)|\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
 	if($ed->post('qtxt','!e')) {//in textarea
@@ -1323,6 +1320,7 @@ case "30"://import
 	} else {
 		$ed->redir("5/$db",['err'=>"Query failed"]);
 	}
+	$q=0;
 	if(is_array($e)) {
 		set_error_handler(function() {});
 		$ed->con->exec("BEGIN TRANSACTION");
@@ -1414,7 +1412,7 @@ case "32"://export
 			}
 		}
 	}
-	if($ed->post('fopt')=='') {//check export options
+	if($ed->post('fopt')=='') {//export options
 		$ed->redir("31/".$db,['err'=>"You didn't select any option"]);
 	} else {
 		$fopt=$ed->post('fopt');
@@ -1425,20 +1423,18 @@ case "32"://export
 		$sql="-- EdLiteAdmin $version SQL Dump\n\n";
 		if(!empty($fopt)) {
 			foreach($tbs as $tb) {
-				if(in_array('structure',$fopt)) {//begin structure
-					$sql .= $ed->tb_structure($tb,$fopt);
-				}
+				if(in_array('structure',$fopt)) $sql .= $ed->tb_structure($tb,$fopt);//begin structure
 				$val='';
-				if(in_array('data',$fopt)) {//check option data
+				if(in_array('data',$fopt)) {//option data
 					$res2 = $ed->con->query("SELECT * FROM ".$tb);
 					$nr= $res2->num_col();
 					foreach($res2->fetch(1) as $row) {
 						$ro= "\nINSERT INTO $tb VALUES(";
 						$i=0;
 						while($i < $nr) {
-							if(is_numeric($row[$i])) $ro.= $row[$i].",";
-							else $ro.= "'".preg_replace(["/\r\n|\r|\n/","/'/"],["\\n","''"],$row[$i])."',";
-							++$i;
+						if(is_numeric($row[$i])) $ro.= $row[$i].",";
+						else $ro.= "'".preg_replace(["/\r\n|\r|\n/","/'/"],["\\n","''"],$row[$i])."',";
+						++$i;
 						}
 						$val.= substr($ro,0,-1).");";
 					}
@@ -1450,10 +1446,10 @@ case "32"://export
 			foreach($vws as $vw) {
 				$q_rw= $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$vw' AND type='view'", true)->fetch();
 				if($q_rw) {
-					if(in_array('drop',$fopt)) {//check option drop
+					if(in_array('drop',$fopt)) {//option drop
 					$sql .= "DROP VIEW IF EXISTS $vw;\n";
 					}
-					if(in_array('ifnot',$fopt)) {//check option if not
+					if(in_array('ifnot',$fopt)) {//option if not
 					$sql.= preg_replace('~(CREATE\sVIEW\s)(.*)~i','${1}IF NOT EXISTS ${2}',$q_rw);
 					} else {
 					$sql.= $q_rw;
@@ -1462,14 +1458,14 @@ case "32"://export
 				}
 			}
 			}
-			if(in_array('trigger',$fopt)) {//check option data
+			if(in_array('trigger',$fopt)) {//option data
 				$q_ttgr= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
 				foreach($q_ttgr as $r_ttgr) {
-				if(in_array('drop',$fopt)) {//check option drop
+				if(in_array('drop',$fopt)) {//option drop
 				$sql .= "\nDROP TRIGGER IF EXISTS ".$r_ttgr[0].";";
 				}
 				$sql .= "\n";
-				if(in_array('ifnot',$fopt)) {//check option if not
+				if(in_array('ifnot',$fopt)) {//option if not
 				$sql.= preg_replace('~(CREATE\sTRIGGER\s)(.*)~i','${1}IF NOT EXISTS ${2}',$r_ttgr[1]);
 				} else {
 				$sql.= $r_ttgr[1];
@@ -1818,7 +1814,7 @@ case "41"://trigger
 	foreach($evm as $evn) echo "<option value='$evn'".($r_tge[3]==$evn?" selected":"").">$evn</option>";
 	echo "</select></td></tr>
 	<tr><td>Definition</td><td><textarea name='utg5'>".$r_tge[5]."</textarea></td></tr>
-	<tr><td class='c1' colspan='2'><button type='submit'>Update</button></td></tr></table></form>";
+	<tr><td class='c1' colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
 break;
 
 case "49"://drop view,trigger
@@ -1827,10 +1823,10 @@ case "49"://drop view,trigger
 	$ed->redir('5/'.$ed->sg[1],['ok'=>"Successfully dropped"]);
 break;
 
-case "50": //login
+case "50"://login
 	if($ed->post('password','i')) {
-		$_SESSION['ltoken']= base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$ed->post('password')));
-		$ed->redir();
+	$_SESSION['ltoken']= base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$ed->post('password')));
+	$ed->redir();
 	}
 	session_unset();
 	session_destroy();
