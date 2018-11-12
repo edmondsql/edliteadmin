@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.12.1";
+$version="3.12.2";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -210,21 +210,21 @@ class ED {
 		}
 	}
 	public function menu($db='',$tb='',$left='',$sp=[]) {
-		$str='';
+		$str="";
 		if($db==1 || $db!='') $str .="<div class='l2'><ul><li><a href='{$this->path}'>Databases</a></li>";
 		if($db!='' && $db!=1) $str .="<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
 		$dv="<li class='divider'>---</li>";
 		if($tb!="") $str .=$dv."<li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";//table
 		if(!empty($sp[1]) && $sp[0]=='view') $str .=$dv."<li><a href='{$this->path}40/$db/".$sp[1]."/view'>Structure</a></li><li><a href='{$this->path}20/$db/".$sp[1]."'>Browse</a></li><li><a class='del' href='{$this->path}49/$db/".$sp[1]."/view'>Drop</a></li>";//view
-		$str.=($db==""?"":"</ul></div>");
+		if($db!='') $str.="</ul></div>";
 
 		if($db!="" && $db!=1) {
-		$str.="<div class='l3 auto2'><select onchange='location=this.value;'><optgroup label='databases'>";
+		$str.="<div class='l3 auto'><select onchange='location=this.value;'><optgroup label='databases'>";
 		foreach($this->listdb() as $udb) $str.="<option value='{$this->path}5/$udb'".($udb==$db?" selected":"").">$udb</option>";
 		$str.="</optgroup></select>";
 		$q_ts=[]; $c_sp=!empty($sp) ? count($sp):"";
 		if($tb!="" || $c_sp >1) {
-		$q_ts= $this->con->query("SELECT name,type FROM sqlite_master WHERE type IN ('table','view','trigger') ORDER BY type")->fetch(1);
+		$q_ts= $this->con->query("SELECT name,type FROM sqlite_master WHERE type IN ('table','view','trigger') ORDER BY type,name")->fetch(1);
 		$sl2="<select onchange='location=this.value;'>";
 		$qtype='';
 		foreach($q_ts as $r_ts) {
@@ -240,6 +240,7 @@ class ED {
 		}
 		$str.="</div>";
 		}
+		
 		$str.="<div class='container'>";
 		if($left==2) $str .="<div class='col3'>";
 		$f=1;$nrf_op='';
@@ -253,7 +254,8 @@ class ED {
 		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
 		<h3>Create Table</h3>".$this->form("6/$db")."<input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>".$nrf_op."</select><br/><button type='submit'>Create</button></form>
 		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
-		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
+		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a>
+		</div><div class='col2'>";
 		return $str;
 	}
 	public function pg_number($pg, $totalpg) {
@@ -418,19 +420,16 @@ $head= '<!DOCTYPE html><html lang="en"><head>
 * {margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
 html {-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
 html, textarea {overflow:auto}
-.container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;width:100%}
-[hidden],.dd div{display:none}
-.d {position:absolute;display:inline-block;right:0}
-.dd {display:inline-block}
-.dd div {position:absolute;z-index:2}
-.dd div a,.dd:hover div {display:block}
+.container {overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap}
+[hidden],.mn ul{display:none}
+.m1 {position:absolute;right:0;top:0}
+.mn li:hover ul {display:block;position:absolute}
 small {font-size:9px}
 .cntr {text-align:center}
-.right,.link {float:right}
-.link {padding:3px 0}
+.link {float:right;padding:3px 0}
 .pg * {padding:0 2px;width:auto}
 caption {font-weight:bold;text-decoration:underline}
-.l2 ul {list-style:none}
+.l1 ul,.l2 ul {list-style:none}
 .left {float:left}
 .left button {margin:0 1px}
 h3 {margin:2px 0 1px;padding:2px 0}
@@ -453,23 +452,23 @@ textarea {white-space:pre-wrap}
 .err {background:#fee;color:#f00;border-bottom:2px solid #f00}
 .l1, th, caption, button {background:#9be}
 .l2,.c1,.col1,h3 {background:#cdf}
-.c2,.dd div {background:#fff}
+.c2,.mn ul {background:#fff}
 .l3, tr:hover.r, button:hover {background:#fe3 !important}
-.ok,.err,.l2 li {display:inline-block;*display:inline;zoom:1}
+.ok,.err,.l2 li,.mn>li {display:inline-block;*display:inline;zoom:1}
 .col1,.col2 {display:table-cell}
-.col1 {vertical-align:top;padding:0 3px}
-.col1, .dw {width:180px}
+.col1 {vertical-align:top;padding:0 3px;min-width:180px}
+.col1,.dw {width:180px}
 .col2 table {margin:3px}
 .col3 table, .dw {margin:3px auto}
 .auto button,.auto input,.auto select {width:auto}
-.auto2 select {width:auto;border:0;padding:0;background:#fe3}
+.l3.auto select {border:0;padding:0;background:#fe3}
 .sort tbody tr {cursor:default;position:relative}
 .handle {font:18px/12px Arial;vertical-align:middle}
 .handle:hover {cursor:move}
 .opacity {opacity:0.7;filter:Alpha(opacity=70)}
 .drag {opacity:1;top:3px;left:0}
 .l1,.l2,.l3 {width:100%}
-.msg,.dd,.a {cursor:pointer}
+.msg,.a {cursor:pointer}
 </style>
 <script src="'.$js.'"></script>
 <script>
@@ -505,7 +504,6 @@ if(item && hoverItem.parent().get(0)===item.parent().get(0)){
 if(drag && overTop) item.insertBefore(hoverItem);
 if(drag && overBottom) item.insertAfter(hoverItem);
 }
-});
 $(document).mouseup(function(){
 base.css({"-webkit-touch-callout":"auto","-webkit-user-select":"auto","-khtml-user-select":"auto","-moz-user-select":"auto","-ms-user-select":"auto","user-select":"auto"});
 els.removeClass("opacity");
@@ -515,6 +513,7 @@ base.find("tr").each(function(i,d){reord[i]=$(d).prop("id");});
 drag=false;
 if(els.map(function(){return this.id;}).get().join() != reord)
 $.ajax({type:"POST", url:"'.$ed->path.'9/'.(empty($ed->sg[1])?"":$ed->sg[1]).'/'.(empty($ed->sg[2])?"":$ed->sg[2]).'", data:"reord="+reord, success:function(){$(this).load(location.reload())}});
+});
 });
 }
 function selectall(cb,lb){
@@ -540,7 +539,7 @@ for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
 }
 }
 </script>
-</head><body><noscript><h1 class="msg err">Please activate Javascript in your browser!</h1></noscript>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<div class="d"><div class="dd">More <small>&#9660;</small><div><a href="'.$ed->path.'60">Info</a></div></div><a href="'.$ed->path.'51">Logout</a></div>').'</div>';
+</head><body><noscript><h1 class="msg err">Please activate Javascript in your browser!</h1></noscript>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<ul class="mn m1"><li>More <small>&#9660;</small><ul><li><a href="'.$ed->path.'60">Info</a></li></ul><li><li><a href="'.$ed->path.'51">Logout</a></li></ul>').'</div>';
 $stru= "<table><caption>TABLE STRUCTURE</caption><tr><th>FIELD</th><th>TYPE</th><th>VALUE</th><th>NULL</th><th>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
@@ -771,7 +770,7 @@ case "10"://table structure
 	$q_rec = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec) {
 		$bg=($bg==1)?2:1;
-		echo "<tr id='".$rec[1]."' class='r c$bg'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]==1 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span class='handle' title='move'>&#10021;</span></td></tr>";
+		echo "<tr class='r c$bg' id='".$rec[1]."'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]==1 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span class='handle' title='move'>&#10021;</span></td></tr>";
 	}
 	echo "</tbody><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a> <a href='{$ed->path}27/$db/$tb/vacuum'>Vacuum</a></div></td></tr></table></form>";
 	$q_idx = $ed->con->query("PRAGMA index_list($tb)")->fetch(1);
