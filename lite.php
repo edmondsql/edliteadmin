@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.12.2";
+$version="3.13.0";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -68,11 +68,11 @@ class DBT {
 		} else {
 		if($mode > 0) {
 			switch($mode){
-			case 1: $ty= FETCH_NUM; break;
-			case 2: $ty= FETCH_ASSOC; break;
+			case 1: $this->_query->setFetchMode(PDO::FETCH_NUM); break;
+			case 2: $this->_query->setFetchMode(PDO::FETCH_ASSOC); break;
 			}
 			$res= [];
-			while($row= $this->_query->fetch(PDO::$ty)) {
+			while($row= $this->_query->fetch()) {
 			$res[]= $row;
 			}
 			return $res;
@@ -948,22 +948,18 @@ case "20"://table browse
 	$ed->check([1,2]);
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
-	if(!empty($_SESSION['_lite_select'])) {
-		$select= $_SESSION['_lite_select'];
-		$q_rex= $ed->con->query($select);
+	$where=(!empty($_SESSION['_litesearch_'.$db.'_'.$tb])?" ".$_SESSION['_litesearch_'.$db.'_'.$tb] : "");
+	$all = $ed->con->query("SELECT COUNT(*) FROM ".$tb.$where, true)->fetch();
+	$totalpg = ceil($all/$step);
+	if(empty($ed->sg[3])) {
+	$pg= 1;
 	} else {
-		$where=(!empty($_SESSION['_litesearch_'.$db.'_'.$tb])?" ".$_SESSION['_litesearch_'.$db.'_'.$tb] : "");
-		$all = $ed->con->query("SELECT COUNT(*) FROM ".$tb.$where, true)->fetch();
-		$totalpg = ceil($all/$step);
-		if(empty($ed->sg[3])) {
-		$pg= 1;
-		} else {
-		$pg = $ed->sg[3];
-		$ed->check([4],['pg'=>$pg,'total'=>$totalpg,'redir'=>"20/$db/$tb"]);
-		}
-		$offset= ($pg - 1) * $step;
-		$q_rex= $ed->con->query("SELECT * FROM {$tb}{$where} LIMIT $offset, $step");
+	$pg = $ed->sg[3];
+	$ed->check([4],['pg'=>$pg,'total'=>$totalpg,'redir'=>"20/$db/$tb"]);
 	}
+	$offset= ($pg - 1) * $step;
+	$q_rex= $ed->con->query("SELECT * FROM {$tb}{$where} LIMIT $offset, $step");
+	
 	$cols= $q_rex->num_col();
 	$r_col= $q_rex->fetch(2);
 	$q_vws= $ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'", true)->fetch();
@@ -1010,8 +1006,7 @@ case "20"://table browse
 	}
 	echo "</table>";
 	$ed->con= null;
-	if(empty($select)) echo $ed->pg_number($pg, $totalpg);
-	else unset($_SESSION['_lite_select']);
+	echo $ed->pg_number($pg, $totalpg);
 break;
 
 case "21"://insert row
@@ -1229,25 +1224,30 @@ case "30"://import
 	$db= $ed->sg[1];
 	$out="";
 	set_time_limit(7200);
+	$e='';
 	$rgex ="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/;*)|\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
 	if($ed->post('qtxt','!e')) {//in textarea
 		$qtxt = $ed->post('qtxt');
-		if (preg_match('/^\b(select)\b/is',$qtxt)) {//run select
-			$q_sel = $ed->con->query("SELECT name FROM sqlite_master WHERE type='table'")->fetch(1);
+		if(preg_match('/^\b(select)\b/is',$qtxt)) {//run select
+			$q_sel = $ed->con->query($qtxt);
 			if($q_sel) {
-			$s_tb=[];
-			foreach($q_sel as $r_sel) $s_tb[]=$r_sel[0];
-			preg_match("/(?<=\bfrom\s)(?:[\w-]+)/is",$qtxt,$mtch);
-			if(in_array($mtch[0],$s_tb)) {
-			$_SESSION['_lite_select'] = $qtxt;
-			$ed->redir("20/$db/".$mtch[0]);
-			} else $ed->redir("5/$db",['err'=>"Table not exist"]);
+			$q_sel=$q_sel->fetch(2);
+			echo $head.$ed->menu($db,'',1)."<table><tr>";
+			foreach($q_sel[0] as $k=>$r_sel) echo "<th>$k</th>";
+			echo "</tr>";
+			foreach($q_sel as $r_sel) {
+			$bg=($bg==1)?2:1;
+			echo "<tr class='r c$bg'>";
+			foreach($r_sel as $r_se) echo "<td>".$r_se."</td>";
+			echo "</tr>";
 			}
+			echo "</table>";
+			} else $ed->redir("5/$db",['err'=>"Wrong query"]);
+		} else {
+			$e= preg_split($rgex, $qtxt, -1, PREG_SPLIT_NO_EMPTY);//import sql
 		}
-		$e= preg_split($rgex, $qtxt, -1, PREG_SPLIT_NO_EMPTY);//import sql
 	} elseif($ed->post('send','i') && $ed->post('send') == "ja") {//from file
 		if(empty($_FILES['importfile']['tmp_name'])) {
-		$e='';
 		$ed->redir("5/$db",['err'=>"No file to upload"]);
 		} else {
 			$tmp = $_FILES['importfile']['tmp_name'];
@@ -1272,8 +1272,7 @@ case "30"://import
 				if(@function_exists('gzopen')) {
 					$gzfile = @gzopen($tmp, 'rb');
 					if(!$gzfile) $ed->redir("5/$db",['err'=>"Can't open GZ file"]);
-					$e='';
-					while (!gzeof($gzfile)) {
+					while(!gzeof($gzfile)) {
 					$e .= gzgetc($gzfile);
 					}
 					gzclose($gzfile);
@@ -1293,7 +1292,6 @@ case "30"://import
 					if(@fread($fzip, 4) != "\x50\x4B\x03\x04") $ed->redir("5/$db",['err'=>"Not a valid ZIP file"]);
 					fclose($fzip);
 				}
-				$e='';
 				$zip = zip_open($tmp);
 				if(is_resource($zip)) {
 					$zip_entry = zip_read($zip);
@@ -1345,9 +1343,9 @@ case "30"://import
 			}
 		}
 		$ed->con->exec("COMMIT");
+		$ed->con= null;
+		echo $head.$ed->menu($db)."<div class='col2'><p>Successfully executed: <b>".$q." quer".($q>1?'ies':'y')."</b></p>".$out;
 	}
-	$ed->con= null;
-	echo $head.$ed->menu($db)."<div class='col2'><p>Successfully executed: <b>".$q." quer".($q>1?'ies':'y')."</b></p>".$out;
 break;
 
 case "31"://export form
