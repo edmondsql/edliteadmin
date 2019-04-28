@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.13.0";
+$version="3.13.1";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -991,7 +991,7 @@ case "20"://table browse
 			$le= strlen($row[$key[$j]]);
 			echo "[blob] ";
 			if($le > 4) {
-			echo "<a href='".$ed->path."33/$db/$tb/$nu/".$row[$key[$j]]."'>".number_format(($le/1024),2)." KB</a>";
+			echo "<a href='".$ed->path."33/$db/$tb/$nu/".$key[$j]."'>".number_format(($le/1024),2)." KB</a>";
 			} else {
 			echo number_format(($le/1024),2)." KB";
 			}
@@ -1223,7 +1223,7 @@ case "30"://import
 	$ed->check([1]);
 	$db= $ed->sg[1];
 	$out="";
-	set_time_limit(7200);
+	@set_time_limit(7200);
 	$e='';
 	$rgex ="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/;*)|\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
 	if($ed->post('qtxt','!e')) {//in textarea
