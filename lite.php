@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.13.1";
+$version="3.13.2";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -402,11 +402,11 @@ class ED {
 		$qry= $this->con->query("SELECT name,sql FROM sqlite_master WHERE type='$ty'".($tbl==''?"":" AND tbl_name='$tbl'"))->fetch(1);
 		if($qry) {
 		foreach($qry as $r_qry) {
-		if(empty($key) || $key=='index' || ($key == 'view' && stripos($r_qry[1]," ".$old)!= false)) {
-		if($r_qry[1] && $key=='index') preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_qry[1], $r_sql);
-		$repl= preg_replace("/\b($old)\b/i",$new,($key=='index'?$r_sql[2]:$r_qry[1]));
-		if($key=='index') $repl = $r_sql[1].$repl.")";
-		$this->con->exec("UPDATE sqlite_master SET sql=\"$repl\" WHERE name='".$r_qry[0]."'".($key=='index'?" AND type='index'":""));
+		if(empty($ty) || $ty=='index' || ($ty == 'view' && stripos($r_qry[1]," ".$old)!= false)) {
+		if($r_qry[1] && $ty=='index') preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_qry[1], $r_sql);
+		$repl= preg_replace("/\b($old)\b/i",$new,($ty=='index'?$r_sql[2]:$r_qry[1]));
+		if($ty=='index') $repl = $r_sql[1].$repl.")";
+		$this->con->exec("UPDATE sqlite_master SET sql=\"$repl\" WHERE name='".$r_qry[0]."'".($ty=='index'?" AND type='index'":""));
 		}
 		}
 		}
@@ -512,7 +512,7 @@ var reord=[];
 base.find("tr").each(function(i,d){reord[i]=$(d).prop("id");});
 drag=false;
 if(els.map(function(){return this.id;}).get().join() != reord)
-$.ajax({type:"POST", url:"'.$ed->path.'9/'.(empty($ed->sg[1])?"":$ed->sg[1]).'/'.(empty($ed->sg[2])?"":$ed->sg[2]).'", data:"reord="+reord, success:function(){$(this).load(location.reload())}});
+$.ajax({type:"POST", url:"'.$ed->path.'9/'.(empty($ed->sg[1])?"":$ed->sg[1].'/').(empty($ed->sg[2])?"":$ed->sg[2]).'", data:"reord="+reord, success:function(){$(this).load(location.reload())}});
 });
 });
 }
@@ -710,12 +710,16 @@ case "9":
 		if(in_array($el,$s_pk)) $n_pk[]=$el;
 		}
 		$q_it= $ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type='index' OR type='trigger'")->fetch(1);
-		$ntb= "edliteadmin";
+		$ntb= "edliteadmin_";
+		$n_fd= implode(',',$n_fd);
+		$n_pk= (empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk).")");
 		$r_qs=["BEGIN TRANSACTION"];
-		$r_qs[]="CREATE TABLE ".$ntb.$tb."(".implode(',',$n_fd).(empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk)."))");
+		$r_qs[]="CREATE TABLE ".$ntb.$tb."(".$n_fd.$n_pk.")";
 		$r_qs[]="INSERT INTO ".$ntb.$tb."($post) SELECT $post FROM $tb";
 		$r_qs[]="DROP TABLE $tb";
-		$r_qs[]="ALTER TABLE ".$ntb.$tb." RENAME TO $tb";
+		$r_qs[]="CREATE TABLE ".$tb."(".$n_fd.$n_pk.")";
+		$r_qs[]="INSERT INTO ".$tb."($post) SELECT $post FROM ".$ntb.$tb;
+		$r_qs[]="DROP TABLE ".$ntb.$tb;
 		foreach($q_it as $r_it) {
 		if($r_it[0]) $r_qs[]=$r_it[0];
 		}
@@ -749,7 +753,7 @@ case "9":
 		}
 		$ed->con->exec("COMMIT");
 		$ed->con->exec("VACUUM");
-		$ed->redir("10/{$db}/".$tb,['ok'=>"Successfully created"]);
+		$ed->redir("10/$db/".$tb,['ok'=>"Successfully created"]);
 	}
 	if(!empty($ed->sg[3])) {//drop index
 		$s_idx= base64_decode($ed->sg[3]);
@@ -786,7 +790,7 @@ case "10"://table structure
 	$ed->con= null;
 	echo "<table class='c1'><tr><td>Rename Table<br/>".$ed->form("9/$db/$tb")."<input type='text' name='rtab' /><br/><button type='submit'>Rename</button></form><br/>Copy Table<br/>".$ed->form("9/$db/$tb")."<select name='copytab'>";
 	foreach($ed->listdb() as $dbl) {
-		echo "<option value='{$dbl}'>$dbl</option>";
+		echo "<option value='$dbl'>$dbl</option>";
 	}
 	echo "</select><br/><button type='submit'>Copy</button></form></td></tr></table>";
 break;
@@ -837,15 +841,14 @@ case "12"://change field structure
 		$qrs="CREATE TABLE $tb(".substr($qr,0,-1).")";
 		$ed->con->exec("BEGIN TRANSACTION");
 		$ed->con->exec("PRAGMA writable_schema=1");
-		//rename in table
-		$ed->con->exec("UPDATE sqlite_master SET sql=\"$qrs\" WHERE name=\"$tb\"");
 		//rename in views
 		$ed->sql_replace($fn1,$fn2,'view');
 		//rename in index
 		$ed->sql_replace($fn1,$fn2,'index',$tb);
 		//rename in triggers
 		$ed->sql_replace($fn1,$fn2,'trigger',$tb);
-		$ed->con->exec("PRAGMA writable_schema=0");
+		//rename in table
+		$ed->con->exec("UPDATE sqlite_master SET sql=\"$qrs\" WHERE name=\"$tb\"");
 		$ed->con->exec("COMMIT");
 		$ed->con= null;
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully changed"]);
@@ -874,6 +877,7 @@ case "13"://drop column
 	if($nof>1){
 		$obj=[];
 		$ed->con->exec("BEGIN TRANSACTION");
+		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		//drop field from view
 		$q_tbw= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(2);
 		if($q_tbw) {
@@ -887,7 +891,6 @@ case "13"://drop column
 		$q_idx = $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
 		$pk='';
 		if($q_idx) {
-		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		foreach($q_idx as $r_idx) {
 			if($r_idx[1]) {
 			preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
@@ -922,12 +925,15 @@ case "13"://drop column
 		}
 		if(!empty($pk)) $qr.=" PRIMARY KEY(".substr($pk,0,-1)."),";
 		//drop field from table
-		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_".$tb);
+		$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
+		$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM ".$tb);
+		$ed->con->exec("DROP TABLE ".$tb);
 		$ed->con->exec("CREATE TABLE $tb (".substr($qr,0,-1).")");
-		$ed->con->exec("INSERT INTO {$tb} SELECT ".substr($re,0,-1)." FROM temp_".$tb);
+		$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_".$tb);
 		$ed->con->exec("DROP TABLE temp_".$tb);
 		foreach($obj as $ob) $ed->con->exec($ob);
 		unset($obj);
+		$ed->con->exec("PRAGMA foreign_keys=ON");
 		$ed->con->exec("COMMIT");
 		$ed->con= null;
 		$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
@@ -1215,8 +1221,8 @@ case "27"://vacuum, analyze
 	if(!empty($op) && in_array($op, $ops)) {
 	$ed->con->exec($op." ".$tb);
 	$ed->con= null;
-	$ed->redir("10/$db/$tb",['ok'=>"Successfully {$op} runed"]);
-	} else $ed->redir("10/$db/$tb",['err'=>"Action {$op} failed"]);
+	$ed->redir("10/$db/$tb",['ok'=>"Successfully $op runed"]);
+	} else $ed->redir("10/$db/$tb",['err'=>"Action $op failed"]);
 break;
 
 case "30"://import
@@ -1370,17 +1376,17 @@ case "31"://export form
 	echo "</select><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
 	$opts = ['structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers'];
 	foreach($opts as $k => $opt) {
-	echo "<p><input type='checkbox' name='fopt[]' value='{$k}'".($k=='structure' ? ' checked':'')." /> ".$opt."</p>";
+	echo "<p><input type='checkbox' name='fopt[]' value='$k'".($k=='structure' ? ' checked':'')." /> ".$opt."</p>";
 	}
 	echo "<h3>File format</h3>";
 	$ffo = ['sql'=>'SQL','csv1'=>'CSV,','csv2'=>'CSV;','json'=>'JSON','xls'=>'Excel Spreadsheet','doc'=>'Word Web','xml'=>'XML','sqlite'=>'SQLite'];
 	foreach($ffo as $k => $ff) {
-	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='{$k}'".($k=='sql' ? ' checked':'')." /> {$ff}</p>";
+	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='$k'".($k=='sql' ? ' checked':'')." /> $ff</p>";
 	}
 	echo "<h3>File compression</h3><p><select name='ftype'>";
 	$fty = ['plain'=>'None','gzip'=>'GZ','zip'=>'Zip'];
 	foreach($fty as $k => $ft) {
-	echo "<option value='{$k}'>{$ft}</option>";
+	echo "<option value='$k'>$ft</option>";
 	}
 	echo "</select></p><button type='submit' name='exp'>Export</button></div></form>";
 	} else {
@@ -1784,7 +1790,7 @@ case "41"://trigger
 			if($q_tgc === false) {
 			$ed->redir("5/".$db,['err'=>"Update trigger failed"]);
 			} else {
-			$ed->con->exec("DROP {$ty} ".$sp);
+			$ed->con->exec("DROP $ty ".$sp);
 			$ed->con->exec("CREATE TRIGGER ".$utg1." ".$utg2." ".$utg3." ON ".$utg4." BEGIN ".$utg5."; END");
 			$ed->redir("5/".$db,['ok'=>"Successfully updated"]);
 			}
