@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.13.2";
+$version="3.13.3";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -895,18 +895,13 @@ case "13"://drop column
 			if($r_idx[1]) {
 			preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_idx[1], $r_prsql);
 			$repl= explode(',', $r_prsql[2]);
-			if(count($r_prsql[2]) < 2 && $fn==$repl[0]) {
+			if(count($repl) < 2 && $fn==$repl[0]) {
 			$obj[]="DROP INDEX ".$r_idx[0];
 			} else {
 			$po= array_search($fn, $repl);
-			if(!empty($po)) unset($repl[$po]);
+			if($po!==false) unset($repl[$po]);
 			$repl= implode(',',$repl);
 			$obj[]= $r_prsql[1].$repl.")";
-			}
-			} elseif($r_idx[0] && !$r_idx[1]) {//pk
-			$q_ii= $ed->con->query("PRAGMA index_info('".$r_idx[0]."')")->fetch(2);
-			foreach($q_ii as $r_ii) {
-			if($r_ii['name'] != $fn) $pk.= $r_ii['name'].",";
 			}
 			}
 		}
@@ -921,6 +916,7 @@ case "13"://drop column
 		if($r_f[1]!=$fn){
 			$qr.= $r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").",";
 			$re.= $r_f[1].",";
+			if($r_f[5]) $pk.= $r_f[1].",";
 		}
 		}
 		if(!empty($pk)) $qr.=" PRIMARY KEY(".substr($pk,0,-1)."),";
