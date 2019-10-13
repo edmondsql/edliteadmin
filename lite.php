@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.0";
+$version="3.14.1";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -713,7 +713,25 @@ case "9":
 		$idn= implode('_',$ed->post('idx'));
 		$ed->con->exec("BEGIN TRANSACTION");
 		if($ed->post('primary','i')) {
-			$ed->con->exec("CREATE INDEX pk_{$tb} ON $tb($idx)");
+			$q_pr= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
+			$r_sql='';$f='';
+			foreach($q_pr as $r_pr) {
+			$r_sql.= $r_pr[1]." ".$r_pr[2].($r_pr[3]>0 ? " NOT NULL":"").($r_pr[4]!='' ? " DEFAULT '".$r_pr[4]."'":"").",";
+			$f.= $r_pr[1].",";
+			}
+			$f=substr($f,0,-1);
+			$idxs= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
+			$trgs= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
+			$ed->con->exec("BEGIN TRANSACTION");
+			$ed->con->exec("CREATE TABLE temp_$tb ($r_sql PRIMARY KEY($idx))");
+			$ed->con->exec("INSERT INTO temp_$tb SELECT $f FROM $tb");
+			$ed->con->exec("DROP TABLE $tb");
+			$ed->con->exec("CREATE TABLE $tb ($r_sql PRIMARY KEY($idx))");
+			$ed->con->exec("INSERT INTO $tb SELECT $f FROM temp_".$tb);
+			$ed->con->exec("DROP TABLE temp_".$tb);
+			foreach($idxs as $idx) $ed->con->exec($idx[0]);
+			foreach($trgs as $trg) $ed->con->exec($trg[0]);
+			$ed->con->exec("COMMIT");
 		} elseif($ed->post('unique','i')) {
 			$ed->con->exec("CREATE UNIQUE INDEX UNI__$idn ON $tb($idx)");
 		} elseif($ed->post('index','i')) {
@@ -725,8 +743,8 @@ case "9":
 	}
 	if(!empty($ed->sg[3])) {//drop index
 		$s_idx= base64_decode($ed->sg[3]);
-		$ed->con->exec("PRAGMA foreign_keys=OFF");
-		$q_ii = $ed->con->exec("DROP INDEX ".$s_idx);
+		$ed->con->exec("PRAGMA foreign_keys=off");
+		$q_ii= $ed->con->exec("DROP INDEX ".$s_idx);
 		if($q_ii === false) $ed->redir("10/$db/".$tb,['err'=>"Can't drop index"]);
 		else $ed->redir("10/$db/".$tb,['ok'=>"Successfully dropped"]);
 	}
@@ -741,7 +759,7 @@ case "10"://table structure
 	$q_rec = $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec) {
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg' id='".$rec[1]."'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]==1 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span class='handle' title='move'>&#10021;</span></td></tr>";
+		echo "<tr class='r c$bg' id='".$rec[1]."'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]>0 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span class='handle' title='move'>&#10021;</span></td></tr>";
 	}
 	echo "</tbody><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a> <a href='{$ed->path}27/$db/$tb/vacuum'>Vacuum</a></div></td></tr></table></form>";
 	$q_idx = $ed->con->query("PRAGMA index_list($tb)")->fetch(1);
