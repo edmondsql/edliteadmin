@@ -1,12 +1,12 @@
 <?php
 error_reporting(E_ALL);
-if(version_compare(PHP_VERSION,'5.4.0','<')) die('Require PHP 5.4 or higher');
+if(version_compare(PHP_VERSION,'7.1.0','<')) die('Require PHP 7.1 or higher');
 if(!extension_loaded('sqlite3') && !extension_loaded('pdo_sqlite')) die('Install sqlite3 or pdo_sqlite extension!');
 session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.13.3";
+$version="3.14.0";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -156,9 +156,9 @@ class ED {
 		$dbs= [];
 		$dh = @opendir($this->dir);
 		while(($dbe = readdir($dh)) != false) {
-			preg_match("/(\\".$this->ext.")$/i",$dbe,$dbext);
-			if(@is_file($this->dir.$dbe) && end($dbext) == $this->ext) {
-				$dbs[] = basename($dbe, $this->ext);
+			$dbext = pathinfo($dbe);
+			if(@is_file($this->dir.$dbe) && !empty($dbext['extension']) && ".".$dbext['extension']==$this->ext) {
+				$dbs[] = $dbext['filename'];
 			}
 		}
 		closedir($dh);
@@ -398,23 +398,10 @@ class ED {
 		}
 		return $val;
 	}
-	public function sql_replace($old,$new,$ty='',$tbl='') {
-		$qry= $this->con->query("SELECT name,sql FROM sqlite_master WHERE type='$ty'".($tbl==''?"":" AND tbl_name='$tbl'"))->fetch(1);
-		if($qry) {
-		foreach($qry as $r_qry) {
-		if(empty($ty) || $ty=='index' || ($ty == 'view' && stripos($r_qry[1]," ".$old)!= false)) {
-		if($r_qry[1] && $ty=='index') preg_match('/(.*)(?<=\()(.+)(?=\))/ms', $r_qry[1], $r_sql);
-		$repl= preg_replace("/\b($old)\b/i",$new,($ty=='index'?$r_sql[2]:$r_qry[1]));
-		if($ty=='index') $repl = $r_sql[1].$repl.")";
-		$this->con->exec("UPDATE sqlite_master SET sql=\"$repl\" WHERE name='".$r_qry[0]."'".($ty=='index'?" AND type='index'":""));
-		}
-		}
-		}
-	}
 }
 $ed= new ED;
 $head= '<!DOCTYPE html><html lang="en"><head>
-<title>EdLiteAdmin</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>EdLiteAdmin</title><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <style>
 * {margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
@@ -629,7 +616,6 @@ case "5"://show tables
 	++$t;
 	}
 	echo ($t>0 ? $trg_tab."</table>":"").$ed->pg_number($pg, $totalpg);
-	$ed->con= null;
 break;
 
 case "6"://create table
@@ -687,13 +673,8 @@ case "9":
 	}
 	if($ed->post('rtab','!e')) {//rename table
 		$new= $ed->sanitize($ed->post('rtab'));
-		$ed->con->exec("PRAGMA writable_schema=1");
-		$ed->con->exec("BEGIN TRANSACTION");
-		$ren_tb= $ed->con->exec("ALTER TABLE $tb RENAME TO ".$new);
+		$ren_tb= $ed->con->exec("ALTER TABLE $tb RENAME TO $new");
 		if($ren_tb === false) $ed->redir("10/$db/$tb",array('err'=>"Can't rename"));
-		$ed->sql_replace($tb,$new,'view');
-		$ed->con->exec("COMMIT");
-		$ed->con->exec("PRAGMA writable_schema=0");
 		$ed->redir("5/".$db,array('ok'=>"Successfully renamed"));
 	}
 	if($ed->post('reord','!e')) {//reorder
@@ -732,20 +713,7 @@ case "9":
 		$idn= implode('_',$ed->post('idx'));
 		$ed->con->exec("BEGIN TRANSACTION");
 		if($ed->post('primary','i')) {
-			$q_pr = $ed->con->query("SELECT sql FROM sqlite_master WHERE name='$tb'", true)->fetch();
-			preg_match('/(?<=\()(.+)(?=\))/ms', $q_pr, $r_prsql);
-			$spos= stripos($r_prsql[1],"PRIMARY KEY");
-			if($spos===false) {
-			$r_sql= $r_prsql[1];
-			} else {
-			$r_sql= preg_split("/,\s*PRIMARY KEY\s*\(.*\)|\s+PRIMARY\s+KEY\s*AUTOINCREMENT|\s+PRIMARY\s+KEY/i", $r_prsql[1], -1, PREG_SPLIT_NO_EMPTY);
-			$r_sql= implode("",$r_sql);
-			}
 			$ed->con->exec("CREATE INDEX pk_{$tb} ON $tb($idx)");
-			$ed->con->exec("PRAGMA writable_schema=1");
-			$ed->con->exec("UPDATE sqlite_master SET name='sqlite_autoindex_{$tb}_1',sql=null WHERE name='pk_{$tb}'");
-			$ed->con->exec("UPDATE sqlite_master SET sql=\"CREATE TABLE $tb(".$r_sql.",PRIMARY KEY($idx))\" WHERE name='$tb'");
-			$ed->con->exec("PRAGMA writable_schema=0");
 		} elseif($ed->post('unique','i')) {
 			$ed->con->exec("CREATE UNIQUE INDEX UNI__$idn ON $tb($idx)");
 		} elseif($ed->post('index','i')) {
@@ -762,7 +730,6 @@ case "9":
 		if($q_ii === false) $ed->redir("10/$db/".$tb,['err'=>"Can't drop index"]);
 		else $ed->redir("10/$db/".$tb,['ok'=>"Successfully dropped"]);
 	}
-	$ed->con= null;
 	$ed->redir("10/$db/$tb",['err'=>"Wrong action"]);
 break;
 
@@ -787,7 +754,6 @@ case "10"://table structure
 		echo "</td><td>".($rc[2]==1 ? 'YES':'NO')."</td><td><a class='del' href='{$ed->path}9/$db/$tb/".base64_encode($rc[1])."'>Drop</a></td></tr>";
 	}
 	echo "</table>";
-	$ed->con= null;
 	echo "<table class='c1'><tr><td>Rename Table<br/>".$ed->form("9/$db/$tb")."<input type='text' name='rtab' /><br/><button type='submit'>Rename</button></form><br/>Copy Table<br/>".$ed->form("9/$db/$tb")."<select name='copytab'>";
 	foreach($ed->listdb() as $dbl) {
 		echo "<option value='$dbl'>$dbl</option>";
@@ -804,7 +770,6 @@ case "11"://add field
 		if(!empty($f1)) {
 		$e= $ed->con->query("ALTER TABLE ".$tb." ADD COLUMN ".$f1." ".$ed->post('f2').($ed->post('f3','!e')?"(".$ed->post('f3').")":"").($ed->post('f4')==1 ? " NOT NULL":"").($ed->post('f5')!='' ? " DEFAULT '".$ed->post('f5')."'":""));
 		} else $ed->redir("11/$db/$tb",['err'=>"Empty field name"]);
-		$ed->con= null;
 		if($e) $ed->redir("10/$db/$tb",['ok'=>"Successfully added"]);
 		else $ed->redir("10/$db/$tb",['err'=>"Can't add this field"]);
 	} else {
@@ -824,13 +789,15 @@ case "12"://change field structure
 	$fn1= $ed->sg[3];
 	$f= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	if($ed->post('change','i')) {
-		$qr='';$pk='';
+		$qr='';$pk='';$re='';
 		$fn2 = $ed->sanitize($ed->post("cf1"));
 		foreach($f as $e) {
 		if($e[1]==$fn1){
 			if(empty($fn2) || is_numeric(substr($fn2,0,1))) $ed->redir("10/$db/$tb",['err'=>"Not a valid field name"]);
+			$re.= $fn2.",";
 			$qr.= $fn2." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf4')==1 ? " NOT NULL":"").($ed->post("cf5","e")?"":" DEFAULT '".$ed->post("cf5")."'").",";
 		} else {
+			$re.= $e[1].",";
 			$qr.= $e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " DEFAULT ".$e[4]:"").",";
 		}
 		if($e[5]>0) {
@@ -840,17 +807,18 @@ case "12"://change field structure
 		$qr.=($pk!='' ? " PRIMARY KEY(".substr($pk,0,-1)."),":"");
 		$qrs="CREATE TABLE $tb(".substr($qr,0,-1).")";
 		$ed->con->exec("BEGIN TRANSACTION");
-		$ed->con->exec("PRAGMA writable_schema=1");
-		//rename in views
-		$ed->sql_replace($fn1,$fn2,'view');
-		//rename in index
-		$ed->sql_replace($fn1,$fn2,'index',$tb);
-		//rename in triggers
-		$ed->sql_replace($fn1,$fn2,'trigger',$tb);
-		//rename in table
-		$ed->con->exec("UPDATE sqlite_master SET sql=\"$qrs\" WHERE name=\"$tb\"");
+		$ed->con->exec("ALTER TABLE $tb RENAME COLUMN $fn1 TO $fn2");
+		$idxs= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
+		$trgs= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
+		$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
+		$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM ".$tb);
+		$ed->con->exec("DROP TABLE ".$tb);
+		$ed->con->exec($qrs);
+		$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_".$tb);
+		$ed->con->exec("DROP TABLE temp_".$tb);
+		foreach($idxs as $idx) $ed->con->exec($idx[0]);
+		foreach($trgs as $trg) $ed->con->exec($trg[0]);
 		$ed->con->exec("COMMIT");
-		$ed->con= null;
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully changed"]);
 	} else {
 		echo $head.$ed->menu($db,$tb,2).$ed->form("12/$db/$tb/$fn1").$stru;
@@ -931,7 +899,6 @@ case "13"://drop column
 		unset($obj);
 		$ed->con->exec("PRAGMA foreign_keys=ON");
 		$ed->con->exec("COMMIT");
-		$ed->con= null;
 		$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
 	} else {
 		$q_dv= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//drop view assoc with table
@@ -1007,7 +974,6 @@ case "20"://table browse
 	}
 	}
 	echo "</table>";
-	$ed->con= null;
 	echo $ed->pg_number($pg, $totalpg);
 break;
 
@@ -1185,7 +1151,6 @@ case "25"://table empty
 	$db= $ed->sg[1];
 	$tb= $ed->sg[2];
 	$ed->con->exec("DELETE FROM ".$tb);
-	$ed->con= null;
 	$ed->redir("5/$db",['ok'=>"Table is empty"]);
 break;
 
@@ -1204,7 +1169,6 @@ case "26"://drop table
 	$ed->con->exec("DROP TABLE ".$tb);
 	$ed->con->exec("COMMIT");
 	$ed->con->exec("VACUUM");
-	$ed->con= null;
 	$ed->redir("5/$db",['ok'=>"Successfully dropped"]);
 break;
 
@@ -1216,7 +1180,6 @@ case "27"://vacuum, analyze
 	$ops= ['vacuum','analyze'];
 	if(!empty($op) && in_array($op, $ops)) {
 	$ed->con->exec($op." ".$tb);
-	$ed->con= null;
 	$ed->redir("10/$db/$tb",['ok'=>"Successfully $op runed"]);
 	} else $ed->redir("10/$db/$tb",['err'=>"Action $op failed"]);
 break;
@@ -1345,7 +1308,6 @@ case "30"://import
 			}
 		}
 		$ed->con->exec("COMMIT");
-		$ed->con= null;
 		echo $head.$ed->menu($db)."<div class='col2'><p>Successfully executed: <b>".$q." quer".($q>1?'ies':'y')."</b></p>".$out;
 	}
 break;
@@ -1862,6 +1824,7 @@ case "60": //info
 	echo "</table>";
 break;
 }
+$ed->con=null;
 unset($_POST);
 unset($_SESSION["ok"]);
 unset($_SESSION["err"]);
