@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.1";
+$version="3.14.2";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -168,7 +168,7 @@ class ED {
 	public function check($level=[], $param=[]) {
 		if(!empty($_SESSION['ltoken'])) {
 		if($_SESSION['ltoken'] != base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$this->passwd))) $this->redir("50",['err'=>"Wrong password"]);
-		session_regenerate_id(true);
+		if(empty($_SERVER['HTTP_X_REQUESTED_WITH'])) session_regenerate_id(true);
 		} else {
 		$this->redir("50");
 		}
