@@ -1,12 +1,12 @@
 <?php
 error_reporting(E_ALL);
-if(version_compare(PHP_VERSION,'7.1.0','<')) die('Require PHP 7.1 or higher');
+if(version_compare(PHP_VERSION,'5.4.0','<')) die('Require PHP 5.4 or higher');
 if(!extension_loaded('sqlite3') && !extension_loaded('pdo_sqlite')) die('Install sqlite3 or pdo_sqlite extension!');
 session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.2";
+$version="3.13.4";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -595,7 +595,7 @@ case "5"://show tables
 	$q_tabs = $ed->con->query("SELECT name,type FROM sqlite_master WHERE type IN ('table','view') ORDER BY type,name LIMIT $offset, $step")->fetch(1);
 	foreach($q_tabs as $r_tabs) {
 		if(!in_array($r_tabs[0],$deny)) {
-		$q_num = $ed->con->query("SELECT COUNT(*) FROM ".$r_tabs[0], true)->fetch();
+		$q_num= ($r_tabs[1] != "view" ? $ed->con->query("SELECT COUNT(*) FROM ".$r_tabs[0], true)->fetch() : $r_tabs[1]);
 		$bg=($bg==1)?2:1;
 		$vl = "/$db/".$r_tabs[0];
 		if($r_tabs[1] == "view") {
@@ -603,7 +603,7 @@ case "5"://show tables
 		} else {
 		$lnk = "10{$vl}"; $vdel= "26{$vl}";
 		}
-		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>".($r_tabs[1] == "view" ? $r_tabs[1] : $q_num)."</td><td><a href='{$ed->path}{$lnk}'>Structure</a><a class='del' href='{$ed->path}{$vdel}'>Drop</a><a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
+		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>$q_num</td><td><a href='{$ed->path}{$lnk}'>Structure</a><a class='del' href='{$ed->path}{$vdel}'>Drop</a><a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
 		}
 	}
 	echo "</table>";
@@ -807,7 +807,7 @@ case "12"://change field structure
 	$fn1= $ed->sg[3];
 	$f= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	if($ed->post('change','i')) {
-		$qr='';$pk='';$re='';
+		$qr='';$pe='';$pk='';$re='';
 		$fn2 = $ed->sanitize($ed->post("cf1"));
 		foreach($f as $e) {
 		if($e[1]==$fn1){
@@ -816,6 +816,7 @@ case "12"://change field structure
 			$qr.= $fn2." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf4')==1 ? " NOT NULL":"").($ed->post("cf5","e")?"":" DEFAULT '".$ed->post("cf5")."'").",";
 		} else {
 			$re.= $e[1].",";
+			$pe.= $e[1].",";
 			$qr.= $e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " DEFAULT ".$e[4]:"").",";
 		}
 		if($e[5]>0) {
@@ -823,19 +824,27 @@ case "12"://change field structure
 		}
 		}
 		$qr.=($pk!='' ? " PRIMARY KEY(".substr($pk,0,-1)."),":"");
-		$qrs="CREATE TABLE $tb(".substr($qr,0,-1).")";
 		$ed->con->exec("BEGIN TRANSACTION");
-		$ed->con->exec("ALTER TABLE $tb RENAME COLUMN $fn1 TO $fn2");
-		$idxs= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
-		$trgs= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
-		$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
-		$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM ".$tb);
+		$q_idxs= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
+		$q_trgs= $ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger' AND tbl_name='$tb'")->fetch(1);
+		$ed->con->exec("CREATE TABLE temp_".$tb." (".substr($qr,0,-1).")");
+		$ed->con->exec("INSERT INTO temp_$tb($pe$fn2) SELECT $pe$fn1 FROM ".$tb);
 		$ed->con->exec("DROP TABLE ".$tb);
-		$ed->con->exec($qrs);
+		$ed->con->exec("CREATE TABLE $tb(".substr($qr,0,-1).")");
 		$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_".$tb);
 		$ed->con->exec("DROP TABLE temp_".$tb);
-		foreach($idxs as $idx) $ed->con->exec($idx[0]);
-		foreach($trgs as $trg) $ed->con->exec($trg[0]);
+		//index
+		foreach($q_idxs as $r_idx) {
+		if($r_idx[1]) {
+		$keys= preg_split("/[()]+/", $r_idx[1]);
+		$key= explode(",",$keys[1]);
+		$el= array_search($fn1, $key);
+		if($el!==false) $key[$el]=$fn2;
+		$ed->con->exec($keys[0]."(".implode(",",$key).")");
+		}
+		}
+		//trigger
+		foreach($q_trgs as $r_trg) $ed->con->exec($r_trg[0]);
 		$ed->con->exec("COMMIT");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully changed"]);
 	} else {
@@ -863,7 +872,6 @@ case "13"://drop column
 	if($nof>1){
 		$obj=[];
 		$ed->con->exec("BEGIN TRANSACTION");
-		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		//drop field from view
 		$q_tbw= $ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(2);
 		if($q_tbw) {
@@ -915,7 +923,6 @@ case "13"://drop column
 		$ed->con->exec("DROP TABLE temp_".$tb);
 		foreach($obj as $ob) $ed->con->exec($ob);
 		unset($obj);
-		$ed->con->exec("PRAGMA foreign_keys=ON");
 		$ed->con->exec("COMMIT");
 		$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
 	} else {
