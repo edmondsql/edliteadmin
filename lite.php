@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.13.4";
+$version="3.13.5";
 $bbs= ['False','True'];
 $deny= ['sqlite_sequence'];
 $js= (file_exists('jquery.js')?"/jquery.js":"http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js");
@@ -716,7 +716,7 @@ case "9":
 			$q_pr= $ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 			$r_sql='';$f='';
 			foreach($q_pr as $r_pr) {
-			$r_sql.= $r_pr[1]." ".$r_pr[2].($r_pr[3]>0 ? " NOT NULL":"").($r_pr[4]!='' ? " DEFAULT '".$r_pr[4]."'":"").",";
+			$r_sql.= $r_pr[1]." ".$r_pr[2].($r_pr[3]>0 ? " NOT NULL":"").($r_pr[4]!='' ? " DEFAULT ".$r_pr[4]:"").",";
 			$f.= $r_pr[1].",";
 			}
 			$f=substr($f,0,-1);
