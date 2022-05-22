@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.0";
+$version="3.14.1";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -152,10 +152,8 @@ class ED {
 		$dbs=[];
 		$dh=@opendir($this->dir);
 		while(($dbe=readdir($dh)) !=false) {
-			$dbext=pathinfo($dbe);
-			if(@is_file($this->dir.$dbe) && !empty($dbext['extension']) && ".".$dbext['extension']==$this->ext) {
-				$dbs[]=$dbext['filename'];
-			}
+		$dbext=pathinfo($dbe);
+		if(@is_file($this->dir.$dbe) && !empty($dbext['extension']) && ".".$dbext['extension']==$this->ext) $dbs[]=$dbext['filename'];
 		}
 		closedir($dh);
 		sort($dbs);
@@ -185,14 +183,14 @@ class ED {
 		if(!$ist) $this->redir("5/$db",['err'=>"Table not exist"]);
 		}
 		if(in_array(3,$level)) {//check field
-			$q_fld=$this->con->query("PRAGMA table_info($tb)")->fetch(2);
-			$meta=[];
-			foreach($q_fld as $row) $meta[]=$row['name'];
-			$err=['err'=>"Field not exist"];
-			if(!in_array($this->sg[3],$meta)) $this->redir($param['redir']."/$db/$tb",$err);
-			if(isset($this->sg[5])) {
-			if(!in_array($this->sg[5],$meta)) $this->redir($param['redir']."/$db/$tb",$err);
-			}
+		$q_fld=$this->con->query("PRAGMA table_info($tb)")->fetch(2);
+		$meta=[];
+		foreach($q_fld as $row) $meta[]=$row['name'];
+		$err=['err'=>"Field not exist"];
+		if(!in_array($this->sg[3],$meta)) $this->redir($param['redir']."/$db/$tb",$err);
+		if(isset($this->sg[5])) {
+		if(!in_array($this->sg[5],$meta)) $this->redir($param['redir']."/$db/$tb",$err);
+		}
 		}
 		if(in_array(4,$level)) {//check pagination
 		if(!is_numeric($param['pg']) || $param['pg'] > $param['total'] || $param['pg'] <1) $this->redir($param['redir'],['err'=>"Invalid page number"]);
@@ -244,10 +242,10 @@ class ED {
 		$nrf_op.="<option value='$f'>$f</option>";
 		++$f;
 		}
-		if($left==1) $str.="<div class='col1'><h3>Import sql/Run select</h3>
+		if($left==1) $str.="<div class='col1'><h3>Run sql</h3>
 		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
 		<h3>Import</h3><small>sql, csv, json, xml, ".substr($this->ext,1).", gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
-		<input type='hidden' name='send' value='ja' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
+		<input type='hidden' name='send' value='ff' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
 		<h3>Create Table</h3>".$this->form("6/$db")."<input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>$nrf_op</select><br/><button type='submit'>Create</button></form>
 		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
 		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a>
@@ -260,8 +258,8 @@ class ED {
 		elseif($this->sg[0]==5) $link=$this->path."5/".$this->sg[1];
 		$pgs='';$k=1;
 		while($k <=$totalpg) {
-			$pgs.="<option ".(($k==$pg) ? "selected='selected'>":"value='$link/$k'>")."$k</option>";
-			++$k;
+		$pgs.="<option ".(($k==$pg) ? "selected='selected'>":"value='$link/$k'>")."$k</option>";
+		++$k;
 		}
 		$lft=($pg>1?"<a href='$link/1'>First</a><a href='$link/".($pg-1)."'>Prev</a>":"");
 		$rgt=($pg < $totalpg?"<a href='$link/".($pg+1)."'>Next</a><a href='$link/$totalpg'>Last</a>":"");
@@ -336,9 +334,7 @@ class ED {
 		$sq=[];
 		if(isset($nspace[$ns]) && isset($xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'})) {
 			$stru=$xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'};
-			foreach($stru as $st) {
-			$sq[]=explode(";",str_replace("\t\t\t","",(string)$st));
-			}
+			foreach($stru as $st) $sq[]=explode(";",str_replace("\t\t\t","",(string)$st));
 		}
 		$sq=(empty($sq) ? $sq : call_user_func_array('array_merge',$sq));
 		//data
@@ -406,7 +402,7 @@ html,textarea{overflow:auto}
 [hidden],.mn ul{display:none}
 .m1{position:absolute;right:0;top:0}
 .mn li:hover ul{display:block;position:absolute}
-.cntr{text-align:center}
+.ce{text-align:center}
 .link{float:right;padding:3px 0}
 .pg *{padding:0 2px;width:auto}
 caption{font-weight:bold;text-decoration:underline}
@@ -421,7 +417,7 @@ table a,.l1 a,.l2 a,.col1 a{padding:0 3px}
 table{border-collapse:collapse;border-spacing:0;border-bottom:1px solid #555}
 td,th{padding:4px;vertical-align:top}
 input[type=checkbox],input[type=radio]{position:relative;vertical-align:middle;bottom:1px}
-input[type=text],input[type=password],input[type=file],textarea,button,select{width:100%;padding:2px 0;border:1px solid #bbb;outline:none;-webkit-border-radius:3px;-moz-border-radius:3px;border-radius:3px;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}
+input[type=text],input[type=password],input[type=file],textarea,button,select{width:100%;padding:2px;border:1px solid #9be;outline:none;-webkit-border-radius:3px;-moz-border-radius:3px;border-radius:3px;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}
 input[type=text],select{min-width:98px !important}
 select{padding:1px 0}
 optgroup option{padding-left:8px}
@@ -451,7 +447,7 @@ textarea{white-space:pre-wrap}
 .l1,.l2,.l3{width:100%}
 .msg,.a{cursor:pointer}
 </style>
-</head><body><noscript><h1 class="msg err">Please enable Javascript in your browser!</h1></noscript>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<ul class="mn m1"><li>More <small>&#9660;</small><ul><li><a href="'.$ed->path.'60">Info</a></li></ul><li><li><a href="'.$ed->path.'51">Logout</a></li></ul>').'</div>';
+</head><body><noscript><h1 class="msg err">Please enable the javascript in your browser</h1></noscript>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<ul class="mn m1"><li>More <small>&#9660;</small><ul><li><a href="'.$ed->path.'60">Info</a></li></ul></li><li><a href="'.$ed->path.'51">Logout</a></li></ul>').'</div>';
 $stru="<table><caption>TABLE STRUCTURE</caption><tr><th>FIELD</th><th>TYPE</th><th>VALUE</th><th>NULL</th><th>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
@@ -645,7 +641,7 @@ case "9":
 			$f.=$r_pr[1].",";
 			}
 			$f=substr($f,0,-1);
-			$sqs=$ed->con->query("SELECT sql FROM sqlite_master WHERE type='index' OR type='trigger' AND tbl_name='$tb'")->fetch(1);
+			$sqs=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 			$ed->con->exec("BEGIN TRANSACTION");
 			$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
 			$ed->con->exec("CREATE TABLE $tb ($r_sql PRIMARY KEY($idx))");
@@ -714,12 +710,7 @@ case "11"://add field
 		if($e) $ed->redir("10/$db/$tb",['ok'=>"Successfully added"]);
 		else $ed->redir("10/$db/$tb",['err'=>"Can't add this field"]);
 	} else {
-		echo $head.$ed->menu($db,$tb,2).$ed->form("11/$db/$tb").$stru."<tr><td><input type='text' name='f1' /></td>
-		<td><select name='f2'>".$ed->fieldtype()."</select></td>
-		<td><input type='text' name='f3' /></td>
-		<td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td>
-		<td><input type='text' name='f5' /></td></tr>
-		<tr><td colspan='5'><button type='submit' name='add'>Add field</button></td></tr></table></form>";
+		echo $head.$ed->menu($db,$tb,2).$ed->form("11/$db/$tb").$stru."<tr><td><input type='text' name='f1' /></td><td><select name='f2'>".$ed->fieldtype()."</select></td><td><input type='text' name='f3' /></td><td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td><td><input type='text' name='f5' /></td></tr><tr><td colspan='5'><button type='submit' name='add'>Add field</button></td></tr></table></form>";
 	}
 break;
 
@@ -751,12 +742,13 @@ case "12"://change field
 		}
 		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
 		$ed->con->exec("BEGIN TRANSACTION");
-		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type='index' OR type='trigger'")->fetch(1);
+		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE type IN ('index','view','trigger')")->fetch(1);
+		foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
 		$ed->con->exec("CREATE TABLE $tb(".substr($qr,0,-1).")");
 		$ed->con->exec("INSERT INTO $tb(".$re.$fn2.") SELECT ".$re.$fn1." FROM temp_$tb");
 		$ed->con->exec("DROP TABLE temp_$tb");
-		foreach($q_it as $r_it) $ed->con->exec($r_it[0]);
+		foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
 		$ed->con->exec("COMMIT");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully changed"]);
 	} else {
@@ -764,10 +756,7 @@ case "12"://change field
 		foreach($q_t as $d) {
 		if($d[1]==$fn1){
 		$d_val=preg_split("/[()]+/",$d[2],-1,PREG_SPLIT_NO_EMPTY);
-		echo "<tr><td><input type='text' name='cf1' value='".$d[1]."' /></td><td><select name='cf2'>".$ed->fieldtype(strtoupper($d_val[0])).
-		"</select></td><td><input type='text' name='cf3' value='".(isset($d_val[1])?$d_val[1]:"")."' /></td>
-		<td><select name='cf4'><option value='0'>Yes</option><option value='1'".($d[3]!=0 ? " selected":"").">No</option></select></td>
-		<td><input type='text' name='cf5' value='".($d[4]==''?'':str_replace("'","",$d[4]))."' /></td></tr>";
+		echo "<tr><td><input type='text' name='cf1' value='".$d[1]."' /></td><td><select name='cf2'>".$ed->fieldtype(strtoupper($d_val[0]))."</select></td><td><input type='text' name='cf3' value='".(isset($d_val[1])?$d_val[1]:"")."' /></td><td><select name='cf4'><option value='0'>Yes</option><option value='1'".($d[3]!=0 ? " selected":"").">No</option></select></td><td><input type='text' name='cf5' value='".($d[4]==''?'':str_replace("'","",$d[4]))."' /></td></tr>";
 		}
 		}
 		echo "<tr><td colspan='5'><button type='submit' name='change'>Change field</button></td></tr></table></form>";
@@ -779,76 +768,31 @@ case "13"://drop field
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
 	$fn=$ed->sg[3];
-	$q_nof=$ed->con->query("SELECT * FROM ".$tb);
-	$nof=$q_nof->num_col();
-	if($nof>1){
-		$obj=[];
-		$ed->con->exec("BEGIN TRANSACTION");
-		//drop field from view
-		$q_tbw=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(2);
-		if($q_tbw) {
-		foreach($q_tbw as $r_tbw) {
-			preg_match("/\b(".$tb.")\b/i",$r_tbw['sql'],$match1);
-			preg_match("/\b(".$fn.")\b/i",$r_tbw['sql'],$match2);
-			if($match1 && $match2) $ed->con->exec("DROP VIEW ".$r_tbw['name']);
-		}
-		}
-		//remove field from index
-		$q_idx=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='$tb'")->fetch(1);
-		if($q_idx) {
-		foreach($q_idx as $r_idx) {
-			if($r_idx[1]) {
-			preg_match('/(.*)(?<=\()(.+)(?=\))/ms',$r_idx[1],$r_prsql);
-			$repl=explode(',',$r_prsql[2]);
-			if(count($repl) < 2 && $fn==$repl[0]) {
-			$obj[]="DROP INDEX ".$r_idx[0];
-			} else {
-			$po=array_search($fn,$repl);
-			if($po!==false) unset($repl[$po]);
-			$repl=implode(',',$repl);
-			$obj[]=$r_prsql[1].$repl.")";
-			}
-			}
-		}
-		}
-		//all triggers
-		$q_trd=$ed->con->query("SELECT sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
-		foreach($q_trd as $r_trd) $obj[]=$r_trd[0];
-		//prepare fields
-		$q_f=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
-		$qr='';$pk='';$fk='';$re='';
-		foreach($q_f as $r_f) {
-		if($r_f[1]!=$fn){
-			$qr.=$r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").",";
-			$re.=$r_f[1].",";
-			if($r_f[5]) $pk.=$r_f[1].",";
-		}
-		}
-		$q_fk=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
-		foreach($q_fk as $r_fk) {
-		if($r_fk['from']!=$fn) $fk.="FOREIGN KEY (".$r_fk['from'].") REFERENCES ".$r_fk['table']." (".$r_fk['to'].")".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
-		}
-		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
-		//drop field from table
-		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
-		$ed->con->exec("CREATE TABLE $tb (".substr($qr,0,-1).")");
-		$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_$tb");
-		$ed->con->exec("DROP TABLE temp_$tb");
-		foreach($obj as $ob) $ed->con->exec($ob);
-		unset($obj);
-		$ed->con->exec("COMMIT");
-		$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
-	} else {
-		$q_dv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//drop view assoc with table
-		if($q_dv) {
-		foreach($q_dv as $r_dv) {
-			preg_match("/\b(".$tb.")\b/i",$r_dv[1],$match);
-			if($match) $ed->con->exec("DROP VIEW ".$r_dv[0]);
-		}
-		}
-		$ed->con->exec("DROP TABLE $tb");
-		$ed->redir("5/$db",['ok'=>"Successfully dropped"]);
+	$obj=[];
+	$ed->con->exec("BEGIN TRANSACTION");
+	$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE type IN ('index','view','trigger')")->fetch(1);
+	foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
+	$q_f=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
+	$qr='';$pk='';$fk='';$re='';
+	foreach($q_f as $r_f) {
+	if($r_f[1]!=$fn){
+		$qr.=$r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").",";
+		$re.=$r_f[1].",";
+		if($r_f[5]) $pk.=$r_f[1].",";
 	}
+	}
+	$q_fk=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
+	foreach($q_fk as $r_fk) {
+	if($r_fk['from']!=$fn) $fk.="FOREIGN KEY (".$r_fk['from'].") REFERENCES ".$r_fk['table']." (".$r_fk['to'].")".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
+	}
+	$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
+	$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
+	$ed->con->exec("CREATE TABLE $tb (".substr($qr,0,-1).")");
+	$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_$tb");
+	$ed->con->exec("DROP TABLE temp_$tb");
+	foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
+	$ed->con->exec("COMMIT");
+	$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
 break;
 
 case "14"://fk
@@ -877,7 +821,7 @@ case "14"://fk
 		}
 		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
 		$ed->con->exec("BEGIN TRANSACTION");
-		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type='index' OR type='trigger'")->fetch(1);
+		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
 		$ed->con->exec("CREATE TABLE $tb(".substr($qr,0,-1).")");
 		$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_$tb");
@@ -1142,8 +1086,7 @@ case "24"://search
 	$fields.="<option value='$fl'>$fl</option>";
 	echo "<tr><td>$fl</td><td><select name='cond__".$fl."'>$conds</select></td><td><input type='text' name='$fl'/></td></tr>";
 	}
-	echo "<tr class='c1'><td>ORDER</td><td><select name='order_field'>$fields</select></td><td><select name='order_ord'><option value='ASC'>ASC</option><option value='DESC'>DESC</option></select></td></tr>
-	<tr><td colspan='3'><button type='submit' name='search'>Search</button></td></tr></table></form>";
+	echo "<tr class='c1'><td>ORDER</td><td><select name='order_field'>$fields</select></td><td><select name='order_ord'><option value='ASC'>ASC</option><option value='DESC'>DESC</option></select></td></tr><tr><td colspan='3'><button type='submit' name='search'>Search</button></td></tr></table></form>";
 break;
 
 case "25"://table empty
@@ -1211,7 +1154,7 @@ case "30"://import
 		} else {
 			$e=preg_split($rgex,$qtxt,-1,PREG_SPLIT_NO_EMPTY);//import sql
 		}
-	} elseif($ed->post('send','i') && $ed->post('send')=="ja") {//from file
+	} elseif($ed->post('send','i') && $ed->post('send')=="ff") {//from file
 		if(empty($_FILES['importfile']['tmp_name'])) {
 		$ed->redir("5/$db",['err'=>"No file to upload"]);
 		} else {
@@ -1227,7 +1170,7 @@ case "30"://import
 				$e=$ed->imp_json($file['filename'],$tmp);
 			} elseif($fext=='xml') {//xml file
 				$e=$ed->imp_xml($file['filename'],$tmp);
-			} elseif($fext=='db' || $fext==substr($ed->ext,1)) {//sqlite file
+			} elseif(in_array($fext,['db',substr($ed->ext,1)])) {//sqlite file
 				$ed->imp_sqlite($file['filename'],$tmp);
 			} elseif($fext=='gz') {//gz file
 				if(($fgz=fopen($tmp,'r')) !==FALSE) {
@@ -1247,7 +1190,7 @@ case "30"://import
 					elseif($e_ext=='csv') $e=$ed->imp_csv($entr['filename'],$e);
 					elseif($e_ext=='json') $e=$ed->imp_json($entr['filename'],$e);
 					elseif($e_ext=='xml') $e=$ed->imp_xml($entr['filename'],$e);
-					elseif($e_ext=='db' || $e_ext==substr($ed->ext,1)) $ed->imp_sqlite($file['filename'],$e);
+					elseif(in_array($e_ext,['db',substr($ed->ext,1)])) $ed->imp_sqlite($file['filename'],$e);
 					else $ed->redir("5/$db",['err'=>"Disallowed extension"]);
 				} else {
 					$ed->redir("5/$db",['err'=>"Can't open GZ file"]);
@@ -1315,7 +1258,7 @@ break;
 case "31"://export form
 	$ed->check([1]);
 	$db=$ed->sg[1];
-	$q_extbs=$ed->con->query("SELECT name FROM sqlite_master WHERE type='table' OR type='view'")->fetch(1);
+	$q_extbs=$ed->con->query("SELECT name FROM sqlite_master WHERE type IN ('table','view')")->fetch(1);
 	$deny=['sqlite_sequence'];
 	$ex=0;$r_tts=[];
 	foreach($q_extbs as $r_extbs) {
@@ -1325,9 +1268,7 @@ case "31"://export form
 	}
 	}
 	if($ex > 0) {
-	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><h3>Select table(s)</h3>
-	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p>
-	<select class='he' id='tables' name='tables[]' multiple='multiple'>";
+	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><h3>Select table(s)</h3><p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p><select class='he' id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>$tts</option>";
 	}
@@ -1716,10 +1657,7 @@ case "40"://view
 		echo $head.$ed->menu($db,'',2,[$ty,$sp]).$ed->form("40/$db/$sp/$ty");
 		$b_lbl="Edit";
 	}
-	echo "<table><tr><th colspan='2'>$b_lbl View</th></tr>
-	<tr><td>Name</td><td><input type='text' name='uv1' value='".$r_uv[1]."'/></td></tr>
-	<tr><td>Statement</td><td><textarea name='uv2'>".$r_uv[2]."</textarea></td></tr>
-	<tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
+	echo "<table><tr><th colspan='2'>$b_lbl View</th></tr><tr><td>Name</td><td><input type='text' name='uv1' value='".$r_uv[1]."'/></td></tr><tr><td>Statement</td><td><textarea name='uv2'>".$r_uv[2]."</textarea></td></tr><tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
 break;
 
 case "41"://trigger
@@ -1758,9 +1696,7 @@ case "41"://trigger
 		$t_lbl="Edit";
 	}
 
-	echo "<table><tr><th colspan='2'>$t_lbl Trigger</th></tr>
-	<tr><td>Trigger Name</td><td><input type='text' name='utg1' value='".$r_tge[1]."'/></td></tr>
-	<tr><td>Table</td><td><select name='utg4'>";
+	echo "<table><tr><th colspan='2'>$t_lbl Trigger</th></tr><tr><td>Trigger Name</td><td><input type='text' name='utg1' value='".$r_tge[1]."'/></td></tr><tr><td>Table</td><td><select name='utg4'>";
 	$q_tbs=$ed->con->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")->fetch(1);
 	foreach($q_tbs as $tgt) {
 	$tgt=$tgt[0];
@@ -1772,9 +1708,7 @@ case "41"://trigger
 	echo "</select></td></tr><tr><td>Event</td><td><select name='utg3'>";
 	$evm=['INSERT','UPDATE','DELETE'];
 	foreach($evm as $evn) echo "<option value='$evn'".($r_tge[3]==$evn?" selected":"").">$evn</option>";
-	echo "</select></td></tr>
-	<tr><td>Definition</td><td><textarea name='utg5'>".$r_tge[5]."</textarea></td></tr>
-	<tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
+	echo "</select></td></tr><tr><td>Definition</td><td><textarea name='utg5'>".$r_tge[5]."</textarea></td></tr><tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
 break;
 
 case "49"://drop view,trigger
@@ -1790,9 +1724,7 @@ case "50"://login
 	}
 	session_unset();
 	session_destroy();
-	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3>
-	<div>Password<br/><input type='password' id='passwd' name='password' /></div>
-	<div><button type='submit'>Login</button></div></div></form>";
+	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3><div>Password<br/><input type='password' id='passwd' name='password' /></div><div><button type='submit'>Login</button></div></div></form>";
 break;
 
 case "51"://logout
@@ -1827,7 +1759,7 @@ $ed->con=null;
 unset($_POST);
 unset($_SESSION["ok"]);
 unset($_SESSION["err"]);
-?></div></div><div class="l1 cntr"><a href="http://edmondsql.github.io">edmondsql</a></div>
+?></div></div><div class="l1 ce"><a href="http://edmondsql.github.io">edmondsql</a></div>
 <script src="<?=$js?>"></script>
 <script>
 $(function(){
