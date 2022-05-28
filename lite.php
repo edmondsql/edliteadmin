@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.1";
+$version="3.14.2";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -820,6 +820,7 @@ case "14"://fk
 		if($r_t[5]>0) $pk.=$r_t[1].",";
 		}
 		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
+		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		$ed->con->exec("BEGIN TRANSACTION");
 		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
@@ -828,6 +829,7 @@ case "14"://fk
 		$ed->con->exec("DROP TABLE temp_$tb");
 		foreach($q_it as $r_it) $ed->con->exec($r_it[0]);
 		$ed->con->exec("COMMIT");
+		$ed->con->exec("PRAGMA foreign_keys=ON");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully ".(isset($ed->sg[3])?"changed":"add")]);
 	}
 	echo $head.$ed->menu($db,$tb,2).$ed->form("14/$db/$tb".((isset($ed->sg[3]) && $ed->sg[3]>=0)?"/".$ed->sg[3]:''));
