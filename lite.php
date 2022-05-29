@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.4";
+$version="3.14.5";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -635,18 +635,22 @@ case "9":
 		$idn=implode('_',$ed->post('idx'));
 		if($ed->post('primary','i')) {
 			$q_pr=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
-			$r_sql='';$f='';
+			$r_sql='';$f='';$fk='';
 			foreach($q_pr as $r_pr) {
 			$r_sql.=$r_pr[1]." ".$r_pr[2].($r_pr[3]>0 ? " NOT NULL":"").($r_pr[4]!='' ? " DEFAULT ".$r_pr[4]:"").",";
 			$f.=$r_pr[1].",";
 			}
 			$f=substr($f,0,-1);
 			$sqs=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
+			$q_fk=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
+			foreach($q_fk as $r_fk) {
+			$fk.="FOREIGN KEY ({$r_fk['from']}) REFERENCES {$r_fk['table']} ({$r_fk['to']})".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
+			}
 			$ed->con->exec("BEGIN TRANSACTION");
-			$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
-			$ed->con->exec("CREATE TABLE $tb ($r_sql PRIMARY KEY($idx))");
-			$ed->con->exec("INSERT INTO $tb SELECT $f FROM temp_$tb");
-			$ed->con->exec("DROP TABLE temp_$tb");
+			$ed->con->exec("CREATE TABLE temp_$tb ($r_sql$fk PRIMARY KEY($idx))");
+			$ed->con->exec("INSERT INTO temp_$tb SELECT $f FROM $tb");
+			$ed->con->exec("DROP TABLE $tb");
+			$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
 			foreach($sqs as $sq) $ed->con->exec($sq[0]);
 			$ed->con->exec("COMMIT");
 		} elseif($ed->post('unique','i')) {
