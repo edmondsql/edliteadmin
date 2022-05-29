@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.3";
+$version="3.14.4";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -619,10 +619,10 @@ case "9":
 		$n_fd=implode(',',$n_fd);
 		$qr=(empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk)."),").$fk;
 		$r_qs=["BEGIN TRANSACTION"];
-		$r_qs[]="ALTER TABLE $tb RENAME TO temp_$tb";
-		$r_qs[]="CREATE TABLE $tb (".$n_fd.substr($qr,0,-1).")";
-		$r_qs[]="INSERT INTO $tb ($post) SELECT $post FROM temp_$tb";
-		$r_qs[]="DROP TABLE temp_$tb";
+		$r_qs[]="CREATE TABLE temp_$tb (".$n_fd.substr($qr,0,-1).")";
+		$r_qs[]="INSERT INTO temp_$tb SELECT $post FROM $tb";
+		$r_qs[]="DROP TABLE $tb";
+		$r_qs[]="ALTER TABLE temp_$tb RENAME TO $tb";
 		foreach($q_it as $r_it) {
 		if($r_it[0]) $r_qs[]=$r_it[0];
 		}
@@ -661,6 +661,7 @@ case "9":
 		$s_idx=base64_decode($ed->sg[3]);
 		$ed->con->exec("PRAGMA foreign_keys=off");
 		$q_ii=$ed->con->exec("DROP INDEX $s_idx");
+		$ed->con->exec("PRAGMA foreign_keys=on");
 		if($q_ii===false) $ed->redir("10/$db/$tb",['err'=>"Can't drop index"]);
 		else $ed->redir("10/$db/$tb",['ok'=>"Successfully dropped"]);
 	}
@@ -792,9 +793,7 @@ case "13"://drop field
 	$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
 	$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM $tb");
 	$ed->con->exec("DROP TABLE $tb");
-	$ed->con->exec("CREATE TABLE $tb (".substr($qr,0,-1).")");
-	$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_$tb");
-	$ed->con->exec("DROP TABLE temp_$tb");
+	$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
 	foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
 	$ed->con->exec("COMMIT");
 	$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
@@ -828,10 +827,10 @@ case "14"://fk
 		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		$ed->con->exec("BEGIN TRANSACTION");
 		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
-		$ed->con->exec("ALTER TABLE $tb RENAME TO temp_$tb");
-		$ed->con->exec("CREATE TABLE $tb(".substr($qr,0,-1).")");
-		$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_$tb");
-		$ed->con->exec("DROP TABLE temp_$tb");
+		$ed->con->exec("CREATE TABLE temp_$tb(".substr($qr,0,-1).")");
+		$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM $tb");
+		$ed->con->exec("DROP TABLE $tb");
+		$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
 		foreach($q_it as $r_it) $ed->con->exec($r_it[0]);
 		$ed->con->exec("COMMIT");
 		$ed->con->exec("PRAGMA foreign_keys=ON");
