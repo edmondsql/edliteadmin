@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.5";
+$version="3.14.6";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -726,7 +726,7 @@ case "12"://change field
 	$fn1=$ed->sg[3];
 	$q_t=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	if($ed->post('change','i')) {
-		$qr='';$pk='';$fk='';$pe='';$re='';
+		$qr='';$pk='';$fk='';$pe='';
 		$fn2=$ed->sanitize($ed->post("cf1"));
 		$q_fk=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
 		foreach($q_fk as $r_fk) {
@@ -736,10 +736,9 @@ case "12"://change field
 		foreach($q_t as $e) {
 		if($e[1]==$fn1){
 			if(empty($fn2) || is_numeric(substr($fn2,0,1))) $ed->redir("10/$db/$tb",['err'=>"Not a valid field name"]);
-			$re.=$fn2.",";
 			$qr.=$fn2." ".$ed->post('cf2').($ed->post('cf3','!e')?"(".$ed->post('cf3').")":"").($ed->post('cf4')==1 ? " NOT NULL":"").($ed->post("cf5","e")?"":" DEFAULT '".$ed->post("cf5")."'").",";
 		} else {
-			$re.=$e[1].",";$pe.=$e[1].",";
+			$pe.=$e[1].",";
 			$qr.=$e[1]." ".$e[2].($e[3]!=0 ? " NOT NULL":"").($e[4]!='' ? " DEFAULT ".$e[4]:"").",";
 		}
 		if($e[5]>0) {
@@ -753,9 +752,7 @@ case "12"://change field
 		$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
 		$ed->con->exec("INSERT INTO temp_$tb($pe$fn2) SELECT $pe$fn1 FROM ".$tb);
 		$ed->con->exec("DROP TABLE $tb");
-		$ed->con->exec("CREATE TABLE $tb(".substr($qr,0,-1).")");
-		$ed->con->exec("INSERT INTO $tb SELECT ".substr($re,0,-1)." FROM temp_$tb");
-		$ed->con->exec("DROP TABLE temp_$tb");
+		$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
 		foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
 		$ed->con->exec("COMMIT");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully changed"]);
@@ -830,12 +827,13 @@ case "14"://fk
 		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
 		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		$ed->con->exec("BEGIN TRANSACTION");
-		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
+		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
+		foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 		$ed->con->exec("CREATE TABLE temp_$tb(".substr($qr,0,-1).")");
 		$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM $tb");
 		$ed->con->exec("DROP TABLE $tb");
 		$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
-		foreach($q_it as $r_it) $ed->con->exec($r_it[0]);
+		foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
 		$ed->con->exec("COMMIT");
 		$ed->con->exec("PRAGMA foreign_keys=ON");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully ".(isset($ed->sg[3])?"changed":"add")]);
