@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.6";
+$version="3.14.7";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -282,16 +282,16 @@ class ED {
 		$data=explode("\n",str_replace(["\r\n","\n\r","\r"],"\n",$fbody));
 		$row=null;
 		foreach($data as $item) {
-			$row.=$item;
-			if(trim($row)==='') {
-			$row=null;
-			continue;
-			} elseif (substr_count($row,'"') % 2 !==0) {
-			$row.=PHP_EOL;
-			continue;
-			}
-			$rows[]=str_getcsv($row,$mark,'"','"');
-			$row=null;
+		$row.=$item;
+		if(trim($row)==='') {
+		$row=null;
+		continue;
+		} elseif (substr_count($row,'"') % 2 !==0) {
+		$row.=PHP_EOL;
+		continue;
+		}
+		$rows[]=str_getcsv($row,$mark,'"','"');
+		$row=null;
 		}
 		foreach($rows as $k=>$rw) {
 		if($k>0) {
@@ -333,21 +333,21 @@ class ED {
 		//structure
 		$sq=[];
 		if(isset($nspace[$ns]) && isset($xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'})) {
-			$stru=$xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'};
-			foreach($stru as $st) $sq[]=explode(";",str_replace("\t\t\t","",(string)$st));
+		$stru=$xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'};
+		foreach($stru as $st) $sq[]=explode(";",str_replace("\t\t\t","",(string)$st));
 		}
 		$sq=(empty($sq) ? $sq : call_user_func_array('array_merge',$sq));
 		//data
 		$data=$xml->xpath('//database/table');
 		foreach($data as $dt) {
-			$tt=$dt->attributes();
-			$co='';$va='';
-			foreach($dt as $dt2) {
-			$tv=$dt2->attributes();
-			$co.=(string)$tv['name'].",";
-			$va.="'".$dt2."',";
-			}
-			if($co!='' && $va!='') $e[]="INSERT INTO '".(string)$tt['name']."'(".substr($co,0,-1).") VALUES(".substr($va,0,-1).");";
+		$tt=$dt->attributes();
+		$co='';$va='';
+		foreach($dt as $dt2) {
+		$tv=$dt2->attributes();
+		$co.=(string)$tv['name'].",";
+		$va.="'".$dt2."',";
+		}
+		if($co!='' && $va!='') $e[]="INSERT INTO '".(string)$tt['name']."'(".substr($co,0,-1).") VALUES(".substr($va,0,-1).");";
 		}
 		return array_merge($sq,$e);
 	}
@@ -404,7 +404,7 @@ html,textarea{overflow:auto}
 .mn li:hover ul{display:block;position:absolute}
 .ce{text-align:center}
 .link{float:right;padding:3px 0}
-.pg *{padding:0 2px;width:auto}
+.pg *{margin:0 2px;width:auto}
 caption{font-weight:bold;text-decoration:underline}
 .l1 ul,.l2 ul{list-style:none}
 .left{float:left}
@@ -418,10 +418,8 @@ table{border-collapse:collapse;border-spacing:0;border-bottom:1px solid #555}
 td,th{padding:4px;vertical-align:top}
 input[type=checkbox],input[type=radio]{position:relative;vertical-align:middle;bottom:1px}
 input[type=text],input[type=password],input[type=file],textarea,button,select{width:100%;padding:2px;border:1px solid #9be;outline:none;-webkit-border-radius:3px;-moz-border-radius:3px;border-radius:3px;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}
-input[type=text],select{min-width:98px !important}
 select{padding:1px 0}
 optgroup option{padding-left:8px}
-textarea,.he{min-height:90px}
 textarea{white-space:pre-wrap}
 .msg{position:absolute;top:0;right:0;z-index:9}
 .ok,.err{padding:8px;font-weight:bold;font-size:13px}
@@ -459,7 +457,7 @@ case ""://show DBs
 	foreach($ed->listdb() as $db) {
 		$bg=($bg==1)?2:1;
 		$dbx=new DBT($ed->dir.$db.$ed->ext);
-		$qs_nr=$dbx->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' or type='view'",true)->fetch();
+		$qs_nr=$dbx->query("SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table','view')",true)->fetch();
 		echo "<tr class='r c$bg'><td>$db</td><td>$qs_nr</td><td><a href='{$ed->path}31/$db'>Exp</a><a class='del' href='{$ed->path}4/$db'>Drop</a><a href='{$ed->path}5/$db'>Browse</a></td></tr>";
 		$dbx=NULL;
 	}
@@ -502,7 +500,7 @@ break;
 case "5"://show tables
 	$ed->check([1]);
 	$db=$ed->sg[1];
-	$all=$ed->con->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' OR type='view'",true)->fetch();
+	$all=$ed->con->query("SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table','view')",true)->fetch();
 	$totalpg=ceil($all/$step);
 	if(empty($ed->sg[2])) {
 		$pg=1;
@@ -615,7 +613,7 @@ case "9":
 		$n_fd[$k]=$s_fd[$el];
 		if(in_array($el,$s_pk)) $n_pk[]=$el;
 		}
-		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type='index' OR type='trigger'")->fetch(1);
+		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		$n_fd=implode(',',$n_fd);
 		$qr=(empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk)."),").$fk;
 		$r_qs=["BEGIN TRANSACTION"];
@@ -747,13 +745,26 @@ case "12"://change field
 		}
 		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
 		$ed->con->exec("BEGIN TRANSACTION");
-		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE type IN ('index','view','trigger')")->fetch(1);
+		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 		$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
-		$ed->con->exec("INSERT INTO temp_$tb($pe$fn2) SELECT $pe$fn1 FROM ".$tb);
+		$ed->con->exec("INSERT INTO temp_$tb($pe$fn2) SELECT $pe$fn1 FROM $tb");
 		$ed->con->exec("DROP TABLE $tb");
 		$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
-		foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
+		foreach($q_it as $r_it) {
+		if($r_it[0]=='index') {
+		$keys=preg_split("/[()]+/", $r_it[2]);
+		$key=explode(",",$keys[1]);
+		$el=array_search($fn1,$key);
+		if($el!==false) $key[$el]=$fn2;
+		$ed->con->exec($keys[0]."(".implode(",",$key).")");
+		}else $ed->con->exec($r_it[2]);
+		}
+		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+		foreach($q_iv as $r_it) {
+		$ed->con->exec("DROP view ".$r_it[0]);
+		$ed->con->exec($r_it[1]);
+		}
 		$ed->con->exec("COMMIT");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully changed"]);
 	} else {
@@ -775,15 +786,15 @@ case "13"://drop field
 	$fn=$ed->sg[3];
 	$obj=[];
 	$ed->con->exec("BEGIN TRANSACTION");
-	$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE type IN ('index','view','trigger')")->fetch(1);
+	$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 	foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 	$q_f=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	$qr='';$pk='';$fk='';$re='';
 	foreach($q_f as $r_f) {
 	if($r_f[1]!=$fn){
-		$qr.=$r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").",";
-		$re.=$r_f[1].",";
-		if($r_f[5]) $pk.=$r_f[1].",";
+	$qr.=$r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").",";
+	$re.=$r_f[1].",";
+	if($r_f[5]) $pk.=$r_f[1].",";
 	}
 	}
 	$q_fk=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
@@ -796,6 +807,11 @@ case "13"://drop field
 	$ed->con->exec("DROP TABLE $tb");
 	$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
 	foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
+	$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+	foreach($q_iv as $r_it) {
+	$ed->con->exec("DROP view ".$r_it[0]);
+	$ed->con->exec($r_it[1]);
+	}
 	$ed->con->exec("COMMIT");
 	$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
 break;
@@ -901,21 +917,17 @@ case "20"://table browse
 		}
 		$j=0;
 		while($j<$cols) {
-			$val=($row[$key[$j]]==''?'':htmlentities($row[$key[$j]]));
-			echo "<td>";
-			if(stristr($rinf[$key[$j]],"blob")==true ) {
-			$le=strlen($row[$key[$j]]);
-			echo "[blob] ";
-			if($le > 4) {
-			echo "<a href='".$ed->path."33/$db/$tb/$nu/".$key[$j]."'>".number_format(($le/1024),2)." KB</a>";
-			} else {
-			echo number_format(($le/1024),2)." KB";
-			}
-			} elseif(strlen($val) > 70) {
-			echo substr($val,0,70)."[...]";
-			} else echo $val;
-			echo "</td>";
-			++$j;
+		$val=($row[$key[$j]]==''?'':htmlentities($row[$key[$j]]));
+		echo "<td>";
+		if(stristr($rinf[$key[$j]],"blob")==true ) {
+		$le=strlen($row[$key[$j]]);
+		echo "[blob] ";
+		echo ($le>4)?"<a href='".$ed->path."33/$db/$tb/$nu/".$key[$j]."'>".number_format(($le/1024),2)." KB</a>":number_format(($le/1024),2)." KB";
+		} elseif(strlen($val) > 70) {
+		echo substr($val,0,70)."[...]";
+		} else echo $val;
+		echo "</td>";
+		++$j;
 		}
 		echo "</tr>";
 	}
@@ -1109,16 +1121,12 @@ case "26"://drop table
 	$ed->check([1,2]);
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
-	$ed->con->exec("BEGIN TRANSACTION");
-	$q_dv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);//drop view
-	if($q_dv) {
-	foreach($q_dv as $r_dv) {
-	preg_match("/\b(".$tb.")\b/i",$r_dv[1],$match);
-	if($match) $ed->con->exec("DROP VIEW ".$r_dv[0]);
-	}
-	}
 	$ed->con->exec("DROP TABLE $tb");
-	$ed->con->exec("COMMIT");
+	$q_it=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+	foreach($q_it as $r_it) {
+	$ed->con->exec("DROP VIEW ".$r_it[0]);
+	$ed->con->exec($r_it[1]);
+	}
 	$ed->con->exec("VACUUM");
 	$ed->redir("5/$db",['ok'=>"Successfully dropped"]);
 break;
@@ -1276,7 +1284,7 @@ case "31"://export form
 	}
 	}
 	if($ex > 0) {
-	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><h3>Select table(s)</h3><p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p><select class='he' id='tables' name='tables[]' multiple='multiple'>";
+	echo $head.$ed->menu($db,'',2).$ed->form("32/$db")."<div class='dw'><h3 class='l1'>Export</h3><h3>Select table(s)</h3><p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p><select id='tables' name='tables[]' multiple='multiple'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>$tts</option>";
 	}
@@ -1707,8 +1715,8 @@ case "41"://trigger
 	echo "<table><tr><th colspan='2'>$t_lbl Trigger</th></tr><tr><td>Trigger Name</td><td><input type='text' name='utg1' value='".$r_tge[1]."'/></td></tr><tr><td>Table</td><td><select name='utg4'>";
 	$q_tbs=$ed->con->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")->fetch(1);
 	foreach($q_tbs as $tgt) {
-	$tgt=$tgt[0];
-	if(!in_array($tgt,$deny)) echo "<option value='".$tgt."'".($r_tge[4]==$tgt ? " selected":"").">$tgt</option>";
+	$tg=$tgt[0];
+	if(!in_array($tg,$deny)) echo "<option value='$tg'".(str_replace('"','',trim($r_tge[4]))==$tg ? " selected":"").">$tg</option>";
 	}
 	echo "</select></td></tr><tr><td>Time</td><td><select name='utg2'>";
 	$tm=['BEFORE','AFTER'];
