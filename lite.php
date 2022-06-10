@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.7";
+$version="3.14.8";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -745,6 +745,8 @@ case "12"://change field
 		}
 		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
 		$ed->con->exec("BEGIN TRANSACTION");
+		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+		foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
 		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 		$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
@@ -760,11 +762,7 @@ case "12"://change field
 		$ed->con->exec($keys[0]."(".implode(",",$key).")");
 		}else $ed->con->exec($r_it[2]);
 		}
-		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
-		foreach($q_iv as $r_it) {
-		$ed->con->exec("DROP view ".$r_it[0]);
-		$ed->con->exec($r_it[1]);
-		}
+		foreach($q_iv as $r_it) $ed->con->exec($r_it[1]);
 		$ed->con->exec("COMMIT");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully changed"]);
 	} else {
@@ -786,6 +784,8 @@ case "13"://drop field
 	$fn=$ed->sg[3];
 	$obj=[];
 	$ed->con->exec("BEGIN TRANSACTION");
+	$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+	foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
 	$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 	foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 	$q_f=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
@@ -807,11 +807,7 @@ case "13"://drop field
 	$ed->con->exec("DROP TABLE $tb");
 	$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
 	foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
-	$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
-	foreach($q_iv as $r_it) {
-	$ed->con->exec("DROP view ".$r_it[0]);
-	$ed->con->exec($r_it[1]);
-	}
+	foreach($q_iv as $r_it) $ed->con->exec($r_it[1]);
 	$ed->con->exec("COMMIT");
 	$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
 break;
@@ -843,6 +839,8 @@ case "14"://fk
 		$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
 		$ed->con->exec("PRAGMA foreign_keys=OFF");
 		$ed->con->exec("BEGIN TRANSACTION");
+		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+		foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
 		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 		$ed->con->exec("CREATE TABLE temp_$tb(".substr($qr,0,-1).")");
@@ -850,6 +848,7 @@ case "14"://fk
 		$ed->con->exec("DROP TABLE $tb");
 		$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
 		foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
+		foreach($q_iv as $r_it) $ed->con->exec($r_it[1]);
 		$ed->con->exec("COMMIT");
 		$ed->con->exec("PRAGMA foreign_keys=ON");
 		$ed->redir("10/$db/$tb",['ok'=>"Successfully ".(isset($ed->sg[3])?"changed":"add")]);
