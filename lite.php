@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.8";
+$version="3.14.9";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
@@ -880,7 +880,9 @@ case "20"://table browse
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
 	$where=(!empty($_SESSION["_litesearch_{$db}_{$tb}"])?" ".$_SESSION["_litesearch_{$db}_{$tb}"] : "");
-	$all=$ed->con->query("SELECT COUNT(*) FROM ".$tb.$where,true)->fetch();
+	$count=$ed->con->query("SELECT COUNT(*) FROM ".$tb.$where,true);
+	if($count->fetch() == false) $ed->redir("5/$db",['err'=>"No data"]);
+	$all=$count->fetch();
 	$totalpg=ceil($all/$step);
 	if(empty($ed->sg[3])) {
 	$pg=1;
@@ -1120,13 +1122,13 @@ case "26"://drop table
 	$ed->check([1,2]);
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
+	$ed->con->exec("BEGIN TRANSACTION");
+	$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+	foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
 	$ed->con->exec("DROP TABLE $tb");
-	$q_it=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
-	foreach($q_it as $r_it) {
-	$ed->con->exec("DROP VIEW ".$r_it[0]);
-	$ed->con->exec($r_it[1]);
-	}
+	foreach($q_iv as $r_it) $ed->con->exec($r_it[1]);
 	$ed->con->exec("VACUUM");
+	$ed->con->exec("COMMIT");
 	$ed->redir("5/$db",['ok'=>"Successfully dropped"]);
 break;
 
