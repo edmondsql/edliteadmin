@@ -6,10 +6,10 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.9";
+$version="3.14.10";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
-$js=(file_exists('jquery.js')?"/jquery.js":"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js");
+$js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
 class DBT {
 	public static $litetype=['sqlite3','pdo_sqlite'];
 	private static $instance=NULL;
@@ -398,7 +398,7 @@ $head='<!DOCTYPE html><html lang="en"><head>
 *{margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
 html{-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;background:#fff}
 html,textarea{overflow:auto}
-.container{overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap}
+.container{overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;scrollbar-width:thin}
 [hidden],.mn ul{display:none}
 .m1{position:absolute;right:0;top:0}
 .mn li:hover ul{display:block;position:absolute}
@@ -445,7 +445,7 @@ textarea{white-space:pre-wrap}
 .l1,.l2,.l3{width:100%}
 .msg,.a{cursor:pointer}
 </style>
-</head><body><noscript><h1 class="msg err">Please enable the javascript in your browser</h1></noscript>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<ul class="mn m1"><li>More <small>&#9660;</small><ul><li><a href="'.$ed->path.'60">Info</a></li></ul></li><li><a href="'.$ed->path.'51">Logout</a></li></ul>').'</div>';
+</head><body>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<ul class="mn m1"><li>More <small>&#9660;</small><ul><li><a href="'.$ed->path.'60">Info</a></li></ul></li><li><a href="'.$ed->path.'51">Logout</a></li></ul>').'</div>';
 $stru="<table><caption>TABLE STRUCTURE</caption><tr><th>FIELD</th><th>TYPE</th><th>VALUE</th><th>NULL</th><th>DEFAULT</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
@@ -514,7 +514,8 @@ case "5"://show tables
 	$q_tabs=$ed->con->query("SELECT name,type FROM sqlite_master WHERE type IN ('table','view') ORDER BY type,name LIMIT $offset,$step")->fetch(1);
 	foreach($q_tabs as $r_tabs) {
 		if(!in_array($r_tabs[0],$deny)) {
-		$q_num=($r_tabs[1] !="view" ? $ed->con->query("SELECT COUNT(*) FROM ".$r_tabs[0],true)->fetch() : $r_tabs[1]);
+		$nr=@$ed->con->query("SELECT COUNT(*) FROM ".$r_tabs[0],true)->fetch();
+		$q_num=($r_tabs[1]=="view" ? $r_tabs[1] : $nr);
 		$bg=($bg==1)?2:1;
 		$vl="/$db/".$r_tabs[0];
 		if($r_tabs[1]=="view") {
@@ -522,7 +523,7 @@ case "5"://show tables
 		} else {
 		$lnk="10{$vl}"; $vdel="26{$vl}";
 		}
-		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>$q_num</td><td><a href='{$ed->path}{$lnk}'>Structure</a><a class='del' href='{$ed->path}{$vdel}'>Drop</a><a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a></td></tr>";
+		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>$q_num</td><td><a href='{$ed->path}{$lnk}'>Structure</a><a class='del' href='{$ed->path}{$vdel}'>Drop</a>".(is_numeric($nr) || ($nr!=false && $q_num=="view") ? "<a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a>":"")."</td></tr>";
 		}
 	}
 	echo "</table>";
@@ -613,6 +614,7 @@ case "9":
 		$n_fd[$k]=$s_fd[$el];
 		if(in_array($el,$s_pk)) $n_pk[]=$el;
 		}
+		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
 		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		$n_fd=implode(',',$n_fd);
 		$qr=(empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk)."),").$fk;
@@ -623,6 +625,12 @@ case "9":
 		$r_qs[]="ALTER TABLE temp_$tb RENAME TO $tb";
 		foreach($q_it as $r_it) {
 		if($r_it[0]) $r_qs[]=$r_it[0];
+		}
+		foreach($q_iv as $r_iv) {
+		if($r_iv[1]) {
+		$ed->con->exec("DROP VIEW ".$r_iv[0]);
+		$r_qs[]=$r_iv[1];
+		}
 		}
 		$r_qs[]="COMMIT";
 		foreach($r_qs as $r_q) $ed->con->exec($r_q);
@@ -881,7 +889,6 @@ case "20"://table browse
 	$tb=$ed->sg[2];
 	$where=(!empty($_SESSION["_litesearch_{$db}_{$tb}"])?" ".$_SESSION["_litesearch_{$db}_{$tb}"] : "");
 	$count=$ed->con->query("SELECT COUNT(*) FROM ".$tb.$where,true);
-	if($count->fetch() == false) $ed->redir("5/$db",['err'=>"No data"]);
 	$all=$count->fetch();
 	$totalpg=ceil($all/$step);
 	if(empty($ed->sg[3])) {
@@ -1127,8 +1134,8 @@ case "26"://drop table
 	foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
 	$ed->con->exec("DROP TABLE $tb");
 	foreach($q_iv as $r_it) $ed->con->exec($r_it[1]);
-	$ed->con->exec("VACUUM");
 	$ed->con->exec("COMMIT");
+	$ed->con->exec("VACUUM");
 	$ed->redir("5/$db",['ok'=>"Successfully dropped"]);
 break;
 
@@ -1781,7 +1788,6 @@ unset($_SESSION["err"]);
 <script>
 $(function(){
 $("#passwd").focus();
-$("noscript").remove();
 if($(".msg").text()!="") setTimeout(function(){$(".msg").fadeOut(900,function(){$(this).remove();});},7000);
 $(".del").on("click",function(e){
 e.preventDefault();
@@ -1796,12 +1802,9 @@ if(e.which==27 || e.which==78) $(".msg").remove();
 });
 });
 $(".msg").on("dblclick",function(){$(this).remove()});
-$(".sort").sort();
-});
-$.fn.sort=function(){
-var base=$(this),els=base.find("tr"),its=base.find(".handle"),drag=false,item;
+var base=$(".sort"),els=base.find("tr"),its=base.find(".handle"),drag=false,item;
 its.on('mousedown',function(e){
-base.css({"-webkit-touch-callout":"none","-webkit-user-select":"none","-moz-user-select":"none","-ms-user-select":"none","user-select":"none"});
+base.css({"-webkit-touch-callout":"none","-webkit-user-select":"none","-moz-user-select":"none","user-select":"none"});
 if(e.which===1){item=$(this).closest("tr");els.addClass("opacity");item.addClass("drag");drag=true;}
 });
 its.on('mousemove',function(e){
@@ -1812,17 +1815,19 @@ if(drag && overTop) hoverItem.before(item);
 if(drag && overBottom) hoverItem.after(item);
 }
 $(document).on('mouseup',function(){
-base.css({"-webkit-touch-callout":"auto","-webkit-user-select":"auto","-moz-user-select":"auto","-ms-user-select":"auto","user-select":"auto"});
+base.css({"-webkit-touch-callout":"auto","-webkit-user-select":"auto","-moz-user-select":"auto","user-select":"auto"});
 els.removeClass("opacity");
 item.removeClass("drag");
 var reord=[];
 base.find("tr").each(function(i,d){reord[i]=$(d).prop("id");});
 drag=false;
-if(els.map(function(){return this.id;}).get() !=reord)
+var ell=[];
+for(var elx of els) {ell.push(elx.id);}
+if(ell !=reord)
 $.ajax({type:"POST",url:"<?=$ed->path.'9/'.(empty($ed->sg[1])?"":$ed->sg[1].'/').(empty($ed->sg[2])?"":$ed->sg[2])?>",data:"reord="+reord,success:function(){$(this).load(location.reload())}});
 });
 });
-}
+});
 function selectall(cb,lb){
 var multi=document.getElementById(lb);
 if(cb.checked) for(var i=0;i<multi.options.length;i++) multi.options[i].selected=true;
