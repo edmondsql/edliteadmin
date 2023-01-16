@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.14.10";
+$version="3.15.0";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -162,7 +162,8 @@ class ED {
 	public function check($level=[],$param=[]) {
 		if(!empty($_SESSION['ltoken'])) {
 		if($_SESSION['ltoken'] !=base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$this->passwd))) $this->redir("50",['err'=>"Wrong password"]);
-		if(empty($_SERVER['HTTP_X_REQUESTED_WITH'])) session_regenerate_id(true);
+		$h = 'HTTP_X_REQUESTED_WITH';
+		if(isset($_SERVER[$h]) && !empty($_SERVER[$h]) && strtolower($_SERVER[$h]) == 'xmlhttprequest') session_regenerate_id(true);
 		} else {
 		$this->redir("50");
 		}
@@ -1748,7 +1749,7 @@ case "50"://login
 	}
 	session_unset();
 	session_destroy();
-	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3><div>Password<br/><input type='password' id='passwd' name='password' /></div><div><button type='submit'>Login</button></div></div></form>";
+	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3><div>Password<br/><input type='password' id='pwd' name='password' /></div><div><button type='submit'>Login</button></div></div></form>";
 break;
 
 case "51"://logout
@@ -1786,9 +1787,10 @@ unset($_SESSION["err"]);
 ?></div></div><div class="l1 ce"><a href="http://edmondsql.github.io">edmondsql</a></div>
 <script src="<?=$js?>"></script>
 <script>
+var pwd=document.getElementById("pwd");
+pwd?pwd.focus():'';
 $(function(){
-$("#passwd").focus();
-if($(".msg").text()!="") setTimeout(function(){$(".msg").fadeOut(900,function(){$(this).remove();});},7000);
+if($(".msg").text()!="") setTimeout(function(){$(".msg").remove();},7000);
 $(".del").on("click",function(e){
 e.preventDefault();
 $(".msg").remove();
@@ -1797,8 +1799,11 @@ $("body").append('<div class="msg"><div class="ok">Yes<\/div><div class="err">No
 $(".msg .ok").on("click",function(){window.location=hrf;});
 $(".msg .err").on("click",function(){$(".msg").remove();});
 $(document).on("keyup",function(e){
-if(e.which==89 || e.which==32) window.location=hrf;
+e.preventDefault();
+if($(".msg").is("div")){
+if(e.which==32 || e.which==89) window.location=hrf;
 if(e.which==27 || e.which==78) $(".msg").remove();
+}
 });
 });
 $(".msg").on("dblclick",function(){$(this).remove()});
@@ -1814,7 +1819,7 @@ if(item && hoverItem.parent().get(0)===item.parent().get(0)){
 if(drag && overTop) hoverItem.before(item);
 if(drag && overBottom) hoverItem.after(item);
 }
-$(document).on('mouseup',function(){
+its.on('mouseup',function(){
 base.css({"-webkit-touch-callout":"auto","-webkit-user-select":"auto","-moz-user-select":"auto","user-select":"auto"});
 els.removeClass("opacity");
 item.removeClass("drag");
@@ -1822,9 +1827,16 @@ var reord=[];
 base.find("tr").each(function(i,d){reord[i]=$(d).prop("id");});
 drag=false;
 var ell=[];
-for(var elx of els) {ell.push(elx.id);}
-if(ell !=reord)
-$.ajax({type:"POST",url:"<?=$ed->path.'9/'.(empty($ed->sg[1])?"":$ed->sg[1].'/').(empty($ed->sg[2])?"":$ed->sg[2])?>",data:"reord="+reord,success:function(){$(this).load(location.reload())}});
+for(var elx of els){ell.push($(elx).id);}
+if(ell !=reord){
+var xhr=new window.XMLHttpRequest();
+xhr.open("POST","<?=$ed->path.'9/'.(empty($ed->sg[1])?'':$ed->sg[1].'/').(empty($ed->sg[2])?'':$ed->sg[2])?>");
+xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+xhr.onload=function(){
+(xhr.readyState == 4 && xhr.status == 200) ? location.reload() : alert('Error: ' + xhr.status);
+}
+xhr.send("reord="+reord);
+}
 });
 });
 });
