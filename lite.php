@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.15.0";
+$version="3.15.1";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -616,6 +616,7 @@ case "9":
 		if(in_array($el,$s_pk)) $n_pk[]=$el;
 		}
 		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
+		foreach($q_iv as $r_iv) $ed->con->exec("DROP VIEW ".$r_iv[0]);
 		$q_it=$ed->con->query("SELECT sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 		$n_fd=implode(',',$n_fd);
 		$qr=(empty($s_pk) ? "":", PRIMARY KEY (".implode(',',$n_pk)."),").$fk;
@@ -624,17 +625,10 @@ case "9":
 		$r_qs[]="INSERT INTO temp_$tb SELECT $post FROM $tb";
 		$r_qs[]="DROP TABLE $tb";
 		$r_qs[]="ALTER TABLE temp_$tb RENAME TO $tb";
-		foreach($q_it as $r_it) {
-		if($r_it[0]) $r_qs[]=$r_it[0];
-		}
-		foreach($q_iv as $r_iv) {
-		if($r_iv[1]) {
-		$ed->con->exec("DROP VIEW ".$r_iv[0]);
-		$r_qs[]=$r_iv[1];
-		}
-		}
+		foreach($q_iv as $r_iv) $r_qs[]=$r_iv[1];
+		foreach($q_it as $r_it) $r_qs[]=$r_it[0];
 		$r_qs[]="COMMIT";
-		foreach($r_qs as $r_q) $ed->con->exec($r_q);
+		foreach($r_qs as $r_q) @$ed->con->exec($r_q);
 		exit;
 	}
 	if($ed->post('idx','!e') && is_array($ed->post('idx'))) {//create index
@@ -792,9 +786,8 @@ case "13"://drop field
 	$tb=$ed->sg[2];
 	$fn=$ed->sg[3];
 	$obj=[];
-	$ed->con->exec("BEGIN TRANSACTION");
 	$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
-	foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
+	foreach($q_iv as $r_iv) $ed->con->exec("DROP VIEW ".$r_iv[0]);
 	$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
 	foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
 	$q_f=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
@@ -811,14 +804,17 @@ case "13"://drop field
 	if($r_fk['from']!=$fn) $fk.="FOREIGN KEY (".$r_fk['from'].") REFERENCES ".$r_fk['table']." (".$r_fk['to'].")".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
 	}
 	$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
-	$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
-	$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM $tb");
-	$ed->con->exec("DROP TABLE $tb");
-	$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
-	foreach($q_it as $r_it) $ed->con->exec($r_it[2]);
-	foreach($q_iv as $r_it) $ed->con->exec($r_it[1]);
-	$ed->con->exec("COMMIT");
+	$q_r=["BEGIN TRANSACTION"];
+	$q_r[]="CREATE TABLE temp_$tb (".substr($qr,0,-1).")";
+	$q_r[]="INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM $tb";
+	$q_r[]="DROP TABLE $tb";
+	$q_r[]="ALTER TABLE temp_$tb RENAME TO $tb";
+	foreach($q_iv as $r_iv) $q_r[]=$r_iv[1];
+	foreach($q_it as $r_it) $q_r[]=$r_it[0];
+	$q_r[]="COMMIT";
+	foreach($q_r as $q) @$ed->con->exec($q);
 	$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
+	
 break;
 
 case "14"://fk
