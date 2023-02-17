@@ -227,7 +227,8 @@ class ED {
 		if($qtype !='') $sl2.='</optgroup>';
 		$sl2.='<optgroup label="'.$r_ts[1].'s">';
 		}
-		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/".$r_ts[0]."/".$r_ts[1]:$this->sg[0]."/$db/".$r_ts[0])."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
+		$in=($r_ts[1]=='view'?[20,40]:[10,20,21,24]);
+		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/".$r_ts[0]."/".$r_ts[1]:(in_array($this->sg[0],$in)?$this->sg[0]:20)."/$db/".$r_ts[0])."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
 		$qtype=$r_ts[1];
 		}
 		if($qtype !='') $sl2.='</optgroup>';
