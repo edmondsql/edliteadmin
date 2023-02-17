@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.15.1";
+$version="3.15.2";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -227,7 +227,7 @@ class ED {
 		if($qtype !='') $sl2.='</optgroup>';
 		$sl2.='<optgroup label="'.$r_ts[1].'s">';
 		}
-		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/".$r_ts[0]."/".$r_ts[1]:"20/$db/".$r_ts[0])."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
+		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/".$r_ts[0]."/".$r_ts[1]:$this->sg[0]."/$db/".$r_ts[0])."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
 		$qtype=$r_ts[1];
 		}
 		if($qtype !='') $sl2.='</optgroup>';
