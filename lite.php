@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.16.0";
+$version="3.16.1";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -353,13 +353,15 @@ class ED {
 	}
 	public function imp_sqlite($fname,$fbody) {
 		$res=[];
-		if(substr($fbody,0,15) !="SQLite format 3") $res[$fname]="No SQLite file";
+		if(substr($fbody,0,15) !="SQLite format 3") $res[$fname]="No sqlite file";
 		$file=pathinfo($fname);
 		$new=$this->dir.$this->sanitize($file['filename']).$this->ext;
+		if(!file_exists($new)) {
 		$sfile=fopen($new,"wb");
 		if(!$sfile) $res[$fname]="Unable to create sqlite file";
 		fwrite($sfile,$fbody);
 		fclose($sfile);
+		} else $res[$fname]="File already exists";
 		return $res;
 	}
 	public function tb_structure($tb,$fopt,$tab='') {
@@ -1130,7 +1132,7 @@ case "25"://table empty
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
 	$ed->con->exec("DELETE FROM ".$tb);
-	$ed->redir("5/$db",['ok'=>"Table is empty"]);
+	$ed->redir("20/$db/$tb",['ok'=>"Table is empty"]);
 break;
 
 case "26"://drop table
@@ -1210,7 +1212,6 @@ case "30"://import
 				}
 				if(@function_exists('gzopen')) {
 					preg_match("/^(.*)\.(sql|csv|json|xml|db|sqlite|tar)$/i",$fext[1],$ex);
-					if($ex[2]!='tar') {
 					$gzfile=@gzopen($tmp,'rb');
 					if(!$gzfile) $ed->redir("5/$db",['err'=>"Can't open GZ file"]);
 					$e='';
@@ -1218,27 +1219,35 @@ case "30"://import
 					$e.=gzgetc($gzfile);
 					}
 					gzclose($gzfile);
-					}
 					if($ex[2]=='sql') $e=preg_split($rgex,$ed->utf($e),-1,PREG_SPLIT_NO_EMPTY);
 					elseif($ex[2]=='csv') $e=$ed->imp_csv($ex[1],$e);
 					elseif($ex[2]=='json') $e=$ed->imp_json($ex[1],$e);
 					elseif($ex[2]=='xml') $e=$ed->imp_xml($ex[1],$e);
 					elseif(in_array($ex[2],['db',substr($ed->ext,1)])) $lite[]=$ed->imp_sqlite($ex[1],$e);
 					elseif($ex[2]=='tar') {
-						$e=[];$tmpTar=$ed->dir.'_tmp.tar';
-						file_put_contents($tmpTar, gzdecode(file_get_contents($tmp)));
-						$pd=new PharData($tmpTar);
-						foreach($pd as $en) {
-						$fi=$en->getFilename();
+						$fh=gzopen($tmp,'rb');
+						$fsize=strlen($e);
+						$total=0;$e=[];
+						while(false !== ($block=gzread($fh,512))) {
+						$total+=512;
+						$t=unpack("a100name/a8mode/a8uid/a8gid/a12size/a12mtime",$block);
+						$file=['name'=>$t['name'],'mode'=>@octdec($t['mode']),'uid'=>@octdec($t['uid']),'size'=>@octdec($t['size']),'mtime'=>@octdec($t['mtime'])];
+						$file['bytes']=($file['size'] + 511) & ~511;
+						if($file['bytes'] > 0) {
+						$block=gzread($fh,$file['bytes']);
+						$f_b=substr($block,0,$file['size']);
+						$fi=trim($file['name']);
 						preg_match("/^(.*)\.(sql|csv|json|xml|db|sqlite)$/i",$fi,$fx);
-						$f_b=$en->getPathName();
 						if($fx[2]=='sql') $e[]=preg_split($rgex,$ed->utf($f_b),-1,PREG_SPLIT_NO_EMPTY);
 						elseif($fx[2]=='csv') $e[]=$ed->imp_csv($fx[1],$f_b);
 						elseif($fx[2]=='json') $e[]=$ed->imp_json($fx[1],$f_b);
 						elseif($fx[2]=='xml') $e[]=$ed->imp_xml($fx[1],$f_b);
-						elseif(in_array($fx[2],['db',substr($ed->ext,1)])) $lite[]=$ed->imp_sqlite($fx[1],file_get_contents($f_b));
+						elseif(in_array($fx[2],['db',substr($ed->ext,1)])) $lite[]=$ed->imp_sqlite($fx[1],$f_b);
+						$total+=$file['bytes'];
 						}
-						@unlink($tmpTar);
+						if($total >= $fsize-1024) break;
+						}
+						gzclose($fh);
 						if(!empty($e)) $e=call_user_func_array('array_merge',$e);
 					}
 				} else {
