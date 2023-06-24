@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.16.1";
+$version="3.16.2";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -1381,8 +1381,8 @@ case "32"://export
 	$ftype=$ed->post('ftype'); $ffmt=$ed->post('ffmt');
 	$dbs=(empty($ed->sg[1])?($ed->post('dbs')?$ed->post('dbs'):[]):[$ed->sg[1]]);
 	if($ffmt[0]!='sqlite') {
-	if((!empty($ed->sg[1]) && $ed->post('tables')=='') || (empty($ed->sg[1]) && $ed->post('dbs')=='')) {
-		$ed->redir("31".(empty($ed->sg[1])?'':'/'.$ed->sg[1]),['err'=>"You didn't selected any DB/Table"]);
+	if(!empty($ed->sg[1]) && $ed->post('tables')=='') {
+		$ed->redir("31/".$ed->sg[1],['err'=>"You didn't selected any table"]);
 	}
 	if($ed->post('fopt')=='' && in_array($ffmt[0],['sql','doc','xml'])) {//export options
 		$ed->redir("31".(empty($ed->sg[1])?'':'/'.$ed->sg[1]),['err'=>"You didn't selected any option"]);
@@ -1390,6 +1390,7 @@ case "32"://export
 		$fopt=$ed->post('fopt');
 	}
 	}
+	if(empty($ed->sg[1]) && $ed->post('dbs')=='') $ed->redir("31",['err'=>"You didn't selected any DB"]);
 	if(!in_array($ffmt[0],['sql','sqlite'])) {
 		$db=$dbs[0];
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
