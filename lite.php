@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.16.2";
+$version="3.16.3";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -166,7 +166,7 @@ class ED {
 		} else {
 		$this->redir("50");
 		}
-		if(in_array(1,$level)) {//exist db
+		if(in_array('1',$level)) {//exist db
 		$op=$this->sg[0];
 		$db=$this->sg[1];
 		$dbx=$this->dir.$db.$this->ext;
@@ -176,13 +176,13 @@ class ED {
 		$this->con->exec("PRAGMA default_synchronous=OFF");
 		}
 		}
-		if(in_array(2,$level)) {//check table
+		if(in_array('2',$level)) {//check table
 		$tb=$this->sg[2];
 		$obj=(($op==20) ? "(type='table' OR type='view')":"type='table'");
 		$ist=$this->con->query("SELECT 1 FROM sqlite_master WHERE name='$tb' AND ".$obj,true)->fetch();
 		if(!$ist) $this->redir("5/$db",['err'=>"Table not exist"]);
 		}
-		if(in_array(3,$level)) {//check field
+		if(in_array('3',$level)) {//check field
 		$q_fld=$this->con->query("PRAGMA table_info($tb)")->fetch(2);
 		$meta=[];
 		foreach($q_fld as $row) $meta[]=$row['name'];
@@ -192,10 +192,10 @@ class ED {
 		if(!in_array($this->sg[5],$meta)) $this->redir($param['redir']."/$db/$tb",$err);
 		}
 		}
-		if(in_array(4,$level)) {//check pagination
+		if(in_array('4',$level)) {//check pagination
 		if(!is_numeric($param['pg']) || $param['pg'] > $param['total'] || $param['pg'] <1) $this->redir($param['redir'],['err'=>"Invalid page number"]);
 		}
-		if(in_array(5,$level)) {//check view,trigger
+		if(in_array('5',$level)) {//check view,trigger
 		$sp=['view','trigger'];
 		$sg3=$this->sg[3];
 		if($op!=49 && ($op==40 && $sg3!=$sp[0]) || ($op==41 && $sg3!=$sp[1])) $this->redir("5/$db");
@@ -209,7 +209,12 @@ class ED {
 		if($db!='' && $db!=1) $str.="<li><a href='{$this->path}31/$db'>Export</a></li><li><a href='{$this->path}5/$db'>Tables</a></li>";
 		$dv="<li class='divider'>---</li>";
 		if($tb!="") $str.=$dv."<li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";//table
-		if(!empty($sp[1]) && $sp[0]=='view') $str.=$dv."<li><a href='{$this->path}40/$db/".$sp[1]."/view'>Structure</a></li><li><a href='{$this->path}20/$db/".$sp[1]."'>Browse</a></li><li><a class='del' href='{$this->path}49/$db/".$sp[1]."/view'>Drop</a></li>";//view
+		if(!empty($sp[1]) && $sp[0]=='view'){
+		$nr=@$this->con->query("SELECT COUNT(*) FROM ".$sp[1],true)->fetch();
+		$str.=$dv."<li><a href='{$this->path}40/$db/".$sp[1]."/view'>Structure</a></li>".
+		($nr!=false ? "<li><a href='{$this->path}20/$db/".$sp[1]."'>Browse</a></li>":"").
+		"<li><a class='del' href='{$this->path}49/$db/".$sp[1]."/view'>Drop</a></li>";//view
+		}
 		if($db!='') $str.="</ul></div>";
 
 		if($db!="" && $db!=1) {
@@ -226,9 +231,17 @@ class ED {
 		if($qtype !='') $sl2.='</optgroup>';
 		$sl2.='<optgroup label="'.$r_ts[1].'s">';
 		}
-		$in=($r_ts[1]=='view'?[20,40]:[10,20,21,24]);
+		if($r_ts[1]=='view'){
+		$in=[20,40];
+		$nr=@$this->con->query("SELECT COUNT(*) FROM ".$r_ts[0],true)->fetch();
+		}else{
+		$in=[10,20,21,24];
+		$nr=true;
+		}
+		if($nr!=false){
 		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/".$r_ts[0]."/".$r_ts[1]:(in_array($this->sg[0],$in)?$this->sg[0]:20)."/$db/".$r_ts[0])."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
 		$qtype=$r_ts[1];
+		}
 		}
 		if($qtype !='') $sl2.='</optgroup>';
 		$str.=$sl2."</select>".((!empty($_SESSION["_litesearch_{$db}_{$tb}"]) && $this->sg[0]==20) ? " [<a href='{$this->path}24/$db/$tb/reset'>reset search</a>]":"");
@@ -419,7 +432,7 @@ html,textarea{overflow:auto}
 .ce{text-align:center}
 .link{float:right;padding:3px 0}
 .pg *{margin:0 2px;width:auto}
-caption{font-weight:bold;text-decoration:underline}
+caption{font-weight:bold;border:2px solid #9be}
 .l1 ul,.l2 ul{list-style:none}
 .left{float:left}
 .left button{margin:0 1px}
@@ -439,7 +452,7 @@ textarea{white-space:pre-wrap}
 .ok,.err{padding:8px;font-weight:bold;font-size:13px}
 .ok{background:#efe;color:#080;border-bottom:2px solid #080}
 .err{background:#fee;color:#f00;border-bottom:2px solid #f00}
-.l1,th,caption,button{background:#9be}
+.l1,th,button{background:#9be}
 .l2,.c1,.col1,h3{background:#cdf}
 .c2,.mn ul{background:#fff}
 .l3,tr:hover.r,button:hover{background:#fe3 !important}
@@ -460,14 +473,14 @@ textarea{white-space:pre-wrap}
 .msg,.a{cursor:pointer}
 </style>
 </head><body>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<ul class="mn m1"><li>More <small>&#9660;</small><ul><li><a href="'.$ed->path.'60">Info</a></li></ul></li><li><a href="'.$ed->path.'51">Logout</a></li></ul>').'</div>';
-$stru="<table><caption>TABLE STRUCTURE</caption><tr><th>FIELD</th><th>TYPE</th><th>VALUE</th><th>NULL</th><th>DEFAULT</th></tr>";
+$stru="<table><caption>Structure</caption><tr><th>Field</th><th>Type</th><th>Value</th><th>Null</th><th>Default</th></tr>";
 
 if(!isset($ed->sg[0])) $ed->sg[0]=0;
 switch($ed->sg[0]) {
 default:
 case ""://show DBs
 	$ed->check();
-	echo $head.$ed->menu()."<div class='col1'>Create Database".$ed->form(2)."<input type='text' name='dbc' /><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>DATABASE</th><th>Tables</th><th><a href='{$ed->path}31'>Exp</a> Actions</th></tr>";
+	echo $head.$ed->menu()."<div class='col1'>Create Database".$ed->form(2)."<input type='text' name='dbc' /><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>Database</th><th>Tables</th><th><a href='{$ed->path}31'>Exp</a>/ Actions</th></tr>";
 	foreach($ed->listdb() as $db) {
 		$bg=($bg==1)?2:1;
 		$dbx=new DBT($ed->dir.$db.$ed->ext);
@@ -524,7 +537,7 @@ case "5"://show tables
 	}
 	$offset=($pg - 1) * $step;
 	echo $head.$ed->menu($db,'',1);
-	echo "<table><tr><th>TABLE/VIEW</th><th>ROWS</th><th>ACTIONS</th></tr>";
+	echo "<table><tr><th>Table/View</th><th>Rows</th><th>Actions</th></tr>";
 	$q_tabs=$ed->con->query("SELECT name,type FROM sqlite_master WHERE type IN ('table','view') ORDER BY type,name LIMIT $offset,$step")->fetch(1);
 	foreach($q_tabs as $r_tabs) {
 		if(!in_array($r_tabs[0],$deny)) {
@@ -543,7 +556,7 @@ case "5"://show tables
 	echo "</table>";
 	$q_tri=$ed->con->query("SELECT name,tbl_name FROM sqlite_master WHERE type='trigger' ORDER BY name")->fetch(1);
 	$t=0;
-	$trg_tab="<table><tr><th>TRIGGER</th><th>TABLE</th><th>ACTIONS</th></tr>";
+	$trg_tab="<table><tr><th>Trigger</th><th>Table</th><th>Actions</th></tr>";
 	foreach($q_tri as $r_tri) {
 	$bg=($bg==1)?2:1;
 	$trg_tab.="<tr class='r c$bg'><td>".$r_tri[0]."</td><td>".$r_tri[1]."</td><td><a href='{$ed->path}41/$db/".$r_tri[0]."/trigger'>Edit</a><a class='del' href='{$ed->path}49/$db/".$r_tri[0]."/trigger'>Drop</a></td></tr>";
@@ -686,11 +699,11 @@ case "9":
 	$ed->redir("10/$db/$tb",['err'=>"Wrong action"]);
 break;
 
-case "10"://table structure
+case "10"://structure
 	$ed->check([1,2]);
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
-	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>TABLE STRUCTURE</caption><thead><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th>FIELD</th><th>TYPE</th><th>NULL</th><th>DEFAULT</th><th>PK</th><th>ACTIONS</th></tr></thead><tbody class='sort'>";
+	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>Structure</caption><thead><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th>Field</th><th>Type</th><th>Null</th><th>Default</th><th>PK</th><th>Actions</th></tr></thead><tbody class='sort'>";
 	$q_rec=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec) {
 		$bg=($bg==1)?2:1;
@@ -698,7 +711,7 @@ case "10"://table structure
 	}
 	echo "</tbody><tfoot><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a></div></td></tr></tfoot></table></form>";
 	$q_idx=$ed->con->query("PRAGMA index_list($tb)")->fetch(1);
-	echo "<table><caption>INDEX</caption><tr><th>NAME</th><th>FIELD</th><th>UNIQUE</th><th>ACTIONS</th></tr>";
+	echo "<table><caption>Index</caption><tr><th>Name</th><th>Field</th><th>Unique</th><th>Actions</th></tr>";
 	foreach($q_idx as $rc) {
 		$bg=($bg==1)?2:1;
 		echo "<tr class='r c$bg'><td>".$rc[1]."</td><td>";
@@ -707,7 +720,7 @@ case "10"://table structure
 		echo "</td><td>".($rc[2]==1 ? 'YES':'NO')."</td><td><a class='del' href='{$ed->path}9/$db/$tb/".base64_encode($rc[1])."'>drop</a></td></tr>";
 	}
 	$q_fkl=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
-	echo "</table><table><caption>FOREIGN KEYS</caption><tr><th>FIELD</th><th>TARGET</th><th>ON DELETE</th><th>ON UPDATE</th><th>ACTIONS <a href='{$ed->path}14/$db/$tb'>add</a></th></tr>";
+	echo "</table><table><caption>Foreign Keys</caption><tr><th>Field</th><th>Target</th><th>On delete</th><th>On update</th><th>Actions <a href='{$ed->path}14/$db/$tb'>add</a></th></tr>";
 	foreach($q_fkl as $r_fkl) {
 		$bg=($bg==1)?2:1;
 		echo "<tr class='r c$bg'><td>".$r_fkl['from']."</td><td>".$r_fkl['table'].".".$r_fkl['to']."</td><td>".$r_fkl['on_delete']."</td><td>".$r_fkl['on_update']."</td><td><a href='{$ed->path}14/$db/$tb/{$r_fkl['id']}'>change</a><a class='del' href='{$ed->path}14/$db/$tb/{$r_fkl['id']}/fk'>drop</a></td></tr>";
@@ -827,7 +840,6 @@ case "13"://drop field
 	$q_r[]="COMMIT";
 	foreach($q_r as $q) @$ed->con->exec($q);
 	$ed->redir("5/$db",['ok'=>"Successfully deleted"]);
-	
 break;
 
 case "14"://fk
@@ -914,7 +926,7 @@ case "20"://table browse
 	$r_col=$q_rex->fetch(2);
 	$q_vws=$ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'",true)->fetch();
 	echo $head.$ed->menu($db,($q_vws=='view'?'':$tb),1,($q_vws=='view'?['view',$tb]:''))."<table><tr>";
-	if($q_vws !='view') echo "<th>ACTIONS</th>";
+	if($q_vws !='view') echo "<th>Actions</th>";
 	$q_ti=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	$rinf=[];
 	foreach($q_ti as $r_ti) {
@@ -1124,7 +1136,7 @@ case "24"://search
 	$fields.="<option value='$fl'>$fl</option>";
 	echo "<tr><td>$fl</td><td><select name='cond__".$fl."'>$conds</select></td><td><input type='text' name='$fl'/></td></tr>";
 	}
-	echo "<tr class='c1'><td>ORDER</td><td><select name='order_field'>$fields</select></td><td><select name='order_ord'><option value='ASC'>ASC</option><option value='DESC'>DESC</option></select></td></tr><tr><td colspan='3'><button type='submit' name='search'>Search</button></td></tr></table></form>";
+	echo "<tr class='c1'><td>Order</td><td><select name='order_field'>$fields</select></td><td><select name='order_ord'><option value='ASC'>ASC</option><option value='DESC'>DESC</option></select></td></tr><tr><td colspan='3'><button type='submit' name='search'>Search</button></td></tr></table></form>";
 break;
 
 case "25"://table empty
@@ -1828,7 +1840,7 @@ case "60"://info
 	unset($dbv);
 	$lty=DBT::$litetype[1];
 	}
-	$q_var=['Extension'=>$lty,'SQLite'=>$vv,'PHP'=>PHP_VERSION,'Software'=>$_SERVER['SERVER_SOFTWARE']];
+	$q_var=['Extension'=>$lty,'SQLite'=>$vv,'Php'=>PHP_VERSION,'Software'=>$_SERVER['SERVER_SOFTWARE']];
 	foreach($q_var as $r_k=>$r_var) {
 	$bg=($bg==1)?2:1;
 	echo "<tr class='r c$bg'><td>$r_k</td><td>$r_var</td></tr>";
