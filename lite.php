@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.16.3";
+$version="3.16.5";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -272,7 +272,7 @@ class ED {
 		elseif($this->sg[0]==5) $link=$this->path."5/".$this->sg[1];
 		$pgs='';$k=1;
 		while($k <=$totalpg) {
-		$pgs.="<option ".(($k==$pg) ? "selected='selected'>":"value='$link/$k'>")."$k</option>";
+		$pgs.="<option ".(($k==$pg) ? "selected>":"value='$link/$k'>")."$k</option>";
 		++$k;
 		}
 		$lft=($pg>1?"<a href='$link/1'>First</a><a href='$link/".($pg-1)."'>Prev</a>":"");
@@ -400,11 +400,11 @@ class ED {
 	public function getTables($db) {
 		$tbs=[];$vws=[];
 		$dbx=new DBT($this->dir.$db.$this->ext);
-		if($this->post('tables')=='' && $this->post('dbs')!='') {
+		if($this->post('tbs')=='' && $this->post('dbs')!='') {
 			$tabs=$dbx->query("SELECT name FROM sqlite_master WHERE type IN ('table','view')")->fetch(1);
 			$tabs=empty($tabs) ? []:call_user_func_array('array_merge',$tabs);
 		} else {
-			$tabs=$this->post('tables');
+			$tabs=$this->post('tbs');
 		}
 		foreach($tabs as $tb) {
 			$q_st=$dbx->query("SELECT name,type FROM sqlite_master WHERE name='$tb'")->fetch(2);
@@ -1341,8 +1341,8 @@ case "31"://export form
 	if(empty($ed->sg[1])) {
 	$ed->check();
 	echo $ed->menu(1,'',2).$ed->form("32").$div."<h3>Select database(s)</h3>
-	<p><input type='checkbox' onclick='selectall(this,\"dbs\")'/> All/None</p>
-	<select id='dbs' name='dbs[]' multiple='multiple'>";
+	<p><input type='checkbox' onchange='selectall(this,\"dbs\");dbx()'/> All/None</p>
+	<select id='dbs' name='dbs[]' multiple='multiple' onchange='dbx()'>";
 	foreach($ed->listdb() as $db) {
 	echo "<option value='$db'>$db</option>";
 	}
@@ -1363,25 +1363,25 @@ case "31"://export form
 	$ed->redir("5/$db",["err"=>"No export empty DB"]);
 	}
 	echo $ed->menu($db,'',2).$ed->form("32/$db").$div."<h3>Select table(s)</h3>
-	<p><input type='checkbox' onclick='selectall(this,\"tables\")' /> All/None</p>
-	<select id='tables' name='tables[]' multiple='multiple'>";
+	<p><input type='checkbox' onchange='selectall(this,\"tbs\");dbx(\"tbs\")' /> All/None</p>
+	<select id='tbs' name='tbs[]' multiple='multiple' onchange='dbx(\"tbs\")'>";
 	foreach($r_tts as $tts) {
 	echo "<option value='$tts'>$tts</option>";
 	}
 	}
-	echo "</select><h3><input type='checkbox' onclick='toggle(this,\"fopt[]\")' /> Options</h3>";
+	echo "</select><h3><input type='checkbox' onchange='toggle(this,\"fopt[]\")' /> Options</h3>";
 	$opts=['structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers'];
 	foreach($opts as $k=> $opt) {
 	echo "<p><input type='checkbox' name='fopt[]' value='$k'".($k=='structure' ? ' checked':'')." /> $opt</p>";
 	}
 	echo "<h3>File format</h3>";
-	$ffo=['sql'=>'SQL','sqlite'=>'SQLite'];
-	if(!empty($ed->sg[1])) $ffo=array_merge($ffo,['json'=>'JSON','csv1'=>'CSV,','csv2'=>'CSV;','xls'=>'Excel Spreadsheet','doc'=>'Word 2000','xml'=>'XML']);
+	$ffo=['sql'=>'SQL','sqlite'=>'SQLite','xls'=>'Spreadsheet','xml'=>'XML','doc'=>'Word'];
+	if(!empty($ed->sg[1])) $ffo=array_merge($ffo,['json'=>'JSON','csv1'=>'CSV,','csv2'=>'CSV;']);
 	foreach($ffo as $k=> $ff) {
-	echo "<p><input type='radio' name='ffmt[]' onclick='opt()' value='$k'".($k=='sql' ? ' checked':'')." /> $ff</p>";
+	echo "<p><input type='radio' name='ffmt[]' onchange='fmt()' value='$k'".($k=='sql' ? ' checked':'')." /> $ff</p>";
 	}
 	echo "<h3>File compression</h3><p><select name='ftype'>";
-	$fty=['plain'=>'None','gzip'=>'GZ','zip'=>'Zip'];
+	$fty=['plain'=>'None','zip'=>'Zip','gzip'=>'GZ'];
 	foreach($fty as $k=> $ft) {
 	echo "<option value='$k'>$ft</option>";
 	}
@@ -1393,7 +1393,7 @@ case "32"://export
 	$ftype=$ed->post('ftype'); $ffmt=$ed->post('ffmt');
 	$dbs=(empty($ed->sg[1])?($ed->post('dbs')?$ed->post('dbs'):[]):[$ed->sg[1]]);
 	if($ffmt[0]!='sqlite') {
-	if(!empty($ed->sg[1]) && $ed->post('tables')=='') {
+	if(!empty($ed->sg[1]) && $ed->post('tbs')=='') {
 		$ed->redir("31/".$ed->sg[1],['err'=>"You didn't selected any table"]);
 	}
 	if($ed->post('fopt')=='' && in_array($ffmt[0],['sql','doc','xml'])) {//export options
@@ -1403,21 +1403,21 @@ case "32"://export
 	}
 	}
 	if(empty($ed->sg[1]) && $ed->post('dbs')=='') $ed->redir("31",['err'=>"You didn't selected any DB"]);
-	if(!in_array($ffmt[0],['sql','sqlite'])) {
+	if(in_array($ffmt[0],['json','csv1','csv2'])) {
 		$db=$dbs[0];
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
 		list($tbs,$vws)=$ed->getTables($db);
 	}
 	if($ffmt[0]=='sql') {//data sql
 		$ffty="text/plain"; $ffext=".sql"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
-		$sql="-- EdLiteAdmin $version SQL Dump\n";
 		foreach($dbs as $db) {
+		$sq="-- EdLiteAdmin $version SQL Dump\n";
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
 		list($tbs,$vws)=$ed->getTables($db);
-		$sql.="\n-- Database: $db\n\n";
+		$sq.="\n-- Database: $db\n\n";
 		if(!empty($fopt)) {
 			foreach($tbs as $tb) {
-				if(in_array('structure',$fopt)) $sql.=$ed->tb_structure($tb,$fopt);//begin structure
+				if(in_array('structure',$fopt)) $sq.=$ed->tb_structure($tb,$fopt);//structure
 				$val='';
 				if(in_array('data',$fopt)) {//option data
 					$res2=$ed->con->query("SELECT * FROM ".$tb);
@@ -1432,7 +1432,7 @@ case "32"://export
 					}
 					$val.=substr($ro,0,-1).");\n";
 					}
-					$sql.=$val."\n";
+					$sq.=$val."\n";
 				}
 			}
 			if($vws !='' && in_array('structure',$fopt)) {//export views
@@ -1440,14 +1440,14 @@ case "32"://export
 				$q_rw=$ed->con->query("SELECT sql FROM sqlite_master WHERE name='$vw' AND type='view'",true)->fetch();
 				if($q_rw) {
 				if(in_array('drop',$fopt)) {//option drop
-				$sql.="DROP VIEW IF EXISTS $vw;\n";
+				$sq.="DROP VIEW IF EXISTS $vw;\n";
 				}
 				if(in_array('ifnot',$fopt)) {//option if not
-				$sql.=preg_replace('~(CREATE\sVIEW\s)(.*)~i','${1}IF NOT EXISTS ${2}',$q_rw);
+				$sq.=preg_replace('~(CREATE\sVIEW\s)(.*)~i','${1}IF NOT EXISTS ${2}',$q_rw);
 				} else {
-				$sql.=$q_rw;
+				$sq.=$q_rw;
 				}
-				$sql.=";\n\n";
+				$sq.=";\n\n";
 				}
 			}
 			}
@@ -1455,17 +1455,19 @@ case "32"://export
 				$q_ttgr=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='trigger'")->fetch(1);
 				foreach($q_ttgr as $r_ttgr) {
 				if(in_array('drop',$fopt)) {//option drop
-				$sql.="DROP TRIGGER IF EXISTS ".$r_ttgr[0].";\n";
+				$sq.="DROP TRIGGER IF EXISTS ".$r_ttgr[0].";\n";
 				}
 				if(in_array('ifnot',$fopt)) {//option if not
-				$sql.=preg_replace('~(CREATE\sTRIGGER\s)(.*)~i','${1}IF NOT EXISTS ${2}',$r_ttgr[1]);
+				$sq.=preg_replace('~(CREATE\sTRIGGER\s)(.*)~i','${1}IF NOT EXISTS ${2}',$r_ttgr[1]);
 				} else {
-				$sql.=$r_ttgr[1];
+				$sq.=$r_ttgr[1];
 				}
-				$sql.=";\n";
+				$sq.=";\n";
 				}
 			}
 		}
+		if($ftype!="plain") $sql[$db.$ffext]=$sq;
+		else $sql=$sq;
 		}
 	} elseif($ffmt[0]=='csv1' || $ffmt[0]=='csv2') {//csv
 		$ffty="text/csv"; $ffext=".csv"; $fname=$db.$ffext;
@@ -1522,8 +1524,11 @@ case "32"://export
 		}
 		if(count($tbs)==1 || $ftype=="plain") $sql=$sql[$fname];
 	} elseif($ffmt[0]=='doc') {//doc
-		$ffty="application/msword"; $ffext=".doc"; $fname=$db.$ffext;
-		$sql='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:word" 	xmlns="http://www.w3.org/TR/REC-html40"><!DOCTYPE html><html><head><meta http-equiv="Content-type" content="text/html;charset=utf-8"></head><body>';
+		$ffty="application/msword"; $ffext=".doc"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
+		foreach($dbs as $db) {
+		$ed->con=new DBT($ed->dir.$db.$ed->ext);
+		list($tbs)=$ed->getTables($db);
+		$sq='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:word" 	xmlns="http://www.w3.org/TR/REC-html40"><!DOCTYPE html><html><head><meta http-equiv="Content-type" content="text/html;charset=utf-8"></head><body>';
 		foreach($tbs as $tb) {
 		$q_doc=$ed->con->query("PRAGMA table_info($tb)")->fetch(2);
 		if(in_array('structure',$fopt)) {
@@ -1549,12 +1554,18 @@ case "32"://export
 			}
 			$wb.='</table><br>';
 		}
-		$sql.=$wh.$wb;
+		$sq.=$wh.$wb;
 		}
-		$sql.='</body></html>';
+		$sq.='</body></html>';
+		if($ftype!="plain") $sql[$db.$ffext]=$sq;
+		else $sql=$sq;
+		}
 	} elseif($ffmt[0]=='xls') {//xls
-		$ffty="application/excel"; $ffext=".xls"; $fname=$db.$ffext;
-		$sql='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
+		$ffty="application/excel"; $ffext=".xls"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
+		foreach($dbs as $db) {
+		$ed->con=new DBT($ed->dir.$db.$ed->ext);
+		list($tbs)=$ed->getTables($db);
+		$sq='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
 		foreach($tbs as $tb) {
 			$xh='<Worksheet ss:Name="'.$tb.'"><Table><Row>';
 			$q_xl1=$ed->con->query("PRAGMA table_info($tb)")->fetch(2);
@@ -1568,51 +1579,57 @@ case "32"://export
 			foreach($r_xl2 as $r_x2) $xh.='<Cell><Data ss:Type="'.(is_numeric($r_x2)?'Number':'String').'">'.htmlentities($r_x2).'</Data></Cell>';
 			$xh.='</Row>';
 			}
-			$sql.=$xh.'</Table></Worksheet>';
+			$sq.=$xh.'</Table></Worksheet>';
 		}
-		$sql.='</Workbook>';
+		$sq.='</Workbook>';
+		if($ftype!="plain") $sql[$db.$ffext]=$sq;
+		else $sql=$sq;
+		}
 	} elseif($ffmt[0]=='xml') {//xml
-		$ffty="application/xml"; $ffext=".xml"; $fname=$db.$ffext;
-		$sql='<?xml version="1.0" encoding="utf-8"?>';
-		$sql.="\n<!-- EdLiteAdmin $version XML Dump -->\n";
-		$sql.="<export version=\"1.0\" xmlns:ed=\"https://github.com/edmondsql\">";
+		$ffty="application/xml"; $ffext=".xml"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
+		foreach($dbs as $db) {
+		$ed->con=new DBT($ed->dir.$db.$ed->ext);
+		list($tbs)=$ed->getTables($db);
+		$sq='<?xml version="1.0" encoding="utf-8"?>';
+		$sq.="\n<!-- EdLiteAdmin $version XML Dump -->\n";
+		$sq.="<export version=\"1.0\" xmlns:ed=\"https://github.com/edmondsql\">";
 		if(in_array('structure',$fopt)) {
-		$sql.="\n\t<ed:structure_schemas>";
-		$sql.="\n\t\t<ed:database name=\"$db\">";
+		$sq.="\n\t<ed:structure_schemas>";
+		$sq.="\n\t\t<ed:database name=\"$db\">";
 		foreach($tbs as $tb) {
-		$sql.="\n\t\t\t<ed:table name=\"$tb\">\n";
-		$sql.= $ed->tb_structure($tb,$fopt,"\t\t\t");
-		$sql.="\t\t\t</ed:table>";
+		$sq.="\n\t\t\t<ed:table name=\"$tb\">\n";
+		$sq.= $ed->tb_structure($tb,$fopt,"\t\t\t");
+		$sq.="\t\t\t</ed:table>";
 		}
-		$sql.="\n\t\t</ed:database>\n\t</ed:structure_schemas>";
+		$sq.="\n\t\t</ed:database>\n\t</ed:structure_schemas>";
 		}
 		if(in_array('data',$fopt)) {
-		$sq="\n\t<database name=\"$db\">";
+		$sq2="\n\t<database name=\"$db\">";
 		foreach($tbs as $tb) {
 		$q_xm1=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 		$q_xm2=$ed->con->query("SELECT * FROM $tb")->fetch(1);
 		foreach($q_xm2 as $r_=>$r_xm2) {
-			$sq.="\n\t\t<table name=\"$tb\">";
+			$sq2.="\n\t\t<table name=\"$tb\">";
 			$x=0;
 			foreach($r_xm2 as $r_x2) {
-			$sq.="\n\t\t\t<column name=\"".$q_xm1[$x][1]."\">".addslashes(htmlspecialchars($r_x2))."</column>";
+			$sq2.="\n\t\t\t<column name=\"".$q_xm1[$x][1]."\">".addslashes(htmlspecialchars($r_x2))."</column>";
 			++$x;
 			}
-			$sq.="\n\t\t</table>";
+			$sq2.="\n\t\t</table>";
 		}
 		}
-		$sq.="\n\t</database>";
+		$sq2.="\n\t</database>";
 		}
-		$sql.=(empty($tbs)?'':$sq)."\n</export>";
+		$sq.=(empty($tbs)?'':$sq2)."\n</export>";
+		if($ftype!="plain") $sql[$db.$ffext]=$sq;
+		else $sql=$sq;
+		}
 	} elseif($ffmt[0]=='sqlite') {//sqlite
 		$ffty="application/octet-stream"; $ffext=$ed->ext; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
 		$sql=[];
 		foreach($dbs as $db) {
 		$sql[$db.$ed->ext]=file_get_contents($ed->dir.$db.$ed->ext);
-		}
-		if($ftype=="plain" || count($dbs)==1) {
-		$sql=$sql[$dbs[0].$ed->ext];
-		$fname=$dbs[0].$ffext;
+		if($ftype=="plain") $sql=$sql[$db.$ed->ext];
 		}
 	}
 
@@ -1849,9 +1866,7 @@ case "60"://info
 break;
 }
 $ed->con=null;
-unset($_POST);
-unset($_SESSION["ok"]);
-unset($_SESSION["err"]);
+unset($_POST,$_SESSION["ok"],$_SESSION["err"]);
 ?></div></div><div class="l1 ce"><a href="http://edmondsql.github.io">edmondsql</a></div>
 <script src="<?=$js?>"></script>
 <script>
@@ -1916,11 +1931,11 @@ else multi.selectedIndex=-1;
 function toggle(cb,el){
 var cbox=document.getElementsByName(el);
 for(var i=0;i<cbox.length;i++) cbox[i].checked=cb.checked;
-if(el="fopt[]") opt();
 }
-function opt(){
-var opt=document.getElementsByName("fopt[]"),ft=document.getElementsByName("ffmt[]"),from=2,to=opt.length,ch="";
-for(var j=0;ft[j];++j){if(ft[j].checked) ch=ft[j].value;}
+function fmt(){
+var opt=document.getElementsByName("fopt[]"),ff=document.getElementsByName("ffmt[]"),from=2,to=opt.length,ch="",ft=document.getElementsByName("ftype")[0];
+for(var j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
+if(document.getElementById('tbs'))dbx('tbs');
 if(ch=="sql"){
 for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
 }else if(ch=="doc" || ch=="xml"){
@@ -1929,6 +1944,19 @@ for(var k=2;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=
 }else{
 for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
 }
+}
+function dbx(el='dbs'){
+var ch="",ft=document.getElementsByName("ftype")[0],ff=document.getElementsByName("ffmt[]"),db=document.querySelectorAll("#"+el+" option:checked").length,dbs=document.getElementById('dbs'),arr=["json","csv1","csv2"];
+for(var j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
+if(ft[0].value!="plain"){
+if((db<2 && (dbs||arr.indexOf(ch)>-1))||(db>1 && (dbs||arr.indexOf(ch)==-1))){
+var op=document.createElement("option");
+op.value="plain";op.text="None";
+ft.options.add(op,0);
+ft.options[0].selected=true;
+}
+}
+if(db>1 && ft[0].value=="plain" && (dbs||arr.indexOf(ch)>-1))ft[0].remove();
 }
 </script>
 </body></html>
