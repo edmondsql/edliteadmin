@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.16.5";
+$version="3.16.6";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -344,6 +344,7 @@ class ED {
 		$nspace=$xml->getNameSpaces(true);
 		$ns=key($nspace);
 		//structure
+		//$db=(string)$xml->xpath('//database')[0]->attributes();
 		$sq=[];
 		if(isset($nspace[$ns]) && isset($xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'})) {
 		$stru=$xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'};
@@ -360,7 +361,7 @@ class ED {
 		$co.=(string)$tv['name'].",";
 		$va.="'".$dt2."',";
 		}
-		if($co!='' && $va!='') $e[]="INSERT INTO '".(string)$tt['name']."'(".substr($co,0,-1).") VALUES(".substr($va,0,-1).");";
+		if($co!='' && $va!='') $e[]="INSERT INTO \"".(string)$tt['name']."\"(".substr($co,0,-1).") VALUES(".substr($va,0,-1).");";
 		}
 		return array_merge($sq,$e);
 	}
@@ -397,9 +398,8 @@ class ED {
 		}
 		return $val;
 	}
-	public function getTables($db) {
+	public function getTables($dbx) {
 		$tbs=[];$vws=[];
-		$dbx=new DBT($this->dir.$db.$this->ext);
 		if($this->post('tbs')=='' && $this->post('dbs')!='') {
 			$tabs=$dbx->query("SELECT name FROM sqlite_master WHERE type IN ('table','view')")->fetch(1);
 			$tabs=empty($tabs) ? []:call_user_func_array('array_merge',$tabs);
@@ -1369,10 +1369,10 @@ case "31"://export form
 	echo "<option value='$tts'>$tts</option>";
 	}
 	}
-	echo "</select><h3><input type='checkbox' onchange='toggle(this,\"fopt[]\")' /> Options</h3>";
+	echo "</select><h3><input type='checkbox' onchange='toggle(this,\"fopt[]\");fmt()' /> Options</h3>";
 	$opts=['structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers'];
 	foreach($opts as $k=> $opt) {
-	echo "<p><input type='checkbox' name='fopt[]' value='$k'".($k=='structure' ? ' checked':'')." /> $opt</p>";
+	echo "<p><input type='checkbox' name='fopt[]' value='$k' /> $opt</p>";
 	}
 	echo "<h3>File format</h3>";
 	$ffo=['sql'=>'SQL','sqlite'=>'SQLite','xls'=>'Spreadsheet','xml'=>'XML','doc'=>'Word'];
@@ -1406,14 +1406,14 @@ case "32"://export
 	if(in_array($ffmt[0],['json','csv1','csv2'])) {
 		$db=$dbs[0];
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
-		list($tbs,$vws)=$ed->getTables($db);
+		list($tbs,$vws)=$ed->getTables($ed->con);
 	}
 	if($ffmt[0]=='sql') {//data sql
 		$ffty="text/plain"; $ffext=".sql"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
 		foreach($dbs as $db) {
 		$sq="-- EdLiteAdmin $version SQL Dump\n";
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
-		list($tbs,$vws)=$ed->getTables($db);
+		list($tbs,$vws)=$ed->getTables($ed->con);
 		$sq.="\n-- Database: $db\n\n";
 		if(!empty($fopt)) {
 			foreach($tbs as $tb) {
@@ -1472,10 +1472,6 @@ case "32"://export
 	} elseif($ffmt[0]=='csv1' || $ffmt[0]=='csv2') {//csv
 		$ffty="text/csv"; $ffext=".csv"; $fname=$db.$ffext;
 		$sql=[];
-		if(count($tbs)==1 || $ftype=="plain") {
-			$tbs=[$tbs[0]];
-			$fname=$tbs[0].$ffext;
-		}
 		$sign=($ffmt[0]=='csv1'?',':';');
 		if(empty($tbs[0])) $ed->redir("31/$db",['err'=>"Select a table/view"]);
 		foreach($tbs as $tb) {
@@ -1500,14 +1496,13 @@ case "32"://export
 			}
 			$sql[$tb.$ffext]=$sq;
 		}
-		if(count($tbs)==1 || $ftype=="plain") $sql=$sql[$fname];
+		if($ftype=="plain") {
+		$fname=$tbs[0].$ffext;
+		$sql=$sql[$fname];
+		}
 	} elseif($ffmt[0]=='json') {//json
 		$ffty="text/json"; $ffext=".json"; $fname=$db.$ffext;
 		$sql=[];
-		if(count($tbs)==1 || $ftype=="plain") {
-			$tbs=[$tbs[0]];
-			$fname=$tbs[0].$ffext;
-		}
 		foreach($tbs as $tb) {
 			$sq="";
 			$q_jso=$ed->con->query("SELECT * FROM $tb")->fetch(2);
@@ -1522,12 +1517,15 @@ case "32"://export
 			}
 			$sql[$tb.$ffext]=$sq;
 		}
-		if(count($tbs)==1 || $ftype=="plain") $sql=$sql[$fname];
+		if($ftype=="plain") {
+		$fname=$tbs[0].$ffext;
+		$sql=$sql[$fname];
+		}
 	} elseif($ffmt[0]=='doc') {//doc
 		$ffty="application/msword"; $ffext=".doc"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
 		foreach($dbs as $db) {
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
-		list($tbs)=$ed->getTables($db);
+		list($tbs)=$ed->getTables($ed->con);
 		$sq='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:word" 	xmlns="http://www.w3.org/TR/REC-html40"><!DOCTYPE html><html><head><meta http-equiv="Content-type" content="text/html;charset=utf-8"></head><body>';
 		foreach($tbs as $tb) {
 		$q_doc=$ed->con->query("PRAGMA table_info($tb)")->fetch(2);
@@ -1564,7 +1562,7 @@ case "32"://export
 		$ffty="application/excel"; $ffext=".xls"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
 		foreach($dbs as $db) {
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
-		list($tbs)=$ed->getTables($db);
+		list($tbs)=$ed->getTables($ed->con);
 		$sq='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
 		foreach($tbs as $tb) {
 			$xh='<Worksheet ss:Name="'.$tb.'"><Table><Row>';
@@ -1589,7 +1587,7 @@ case "32"://export
 		$ffty="application/xml"; $ffext=".xml"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
 		foreach($dbs as $db) {
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
-		list($tbs)=$ed->getTables($db);
+		list($tbs)=$ed->getTables($ed->con);
 		$sq='<?xml version="1.0" encoding="utf-8"?>';
 		$sq.="\n<!-- EdLiteAdmin $version XML Dump -->\n";
 		$sq.="<export version=\"1.0\" xmlns:ed=\"https://github.com/edmondsql\">";
@@ -1603,6 +1601,7 @@ case "32"://export
 		}
 		$sq.="\n\t\t</ed:database>\n\t</ed:structure_schemas>";
 		}
+		$sq2='';
 		if(in_array('data',$fopt)) {
 		$sq2="\n\t<database name=\"$db\">";
 		foreach($tbs as $tb) {
@@ -1933,16 +1932,17 @@ var cbox=document.getElementsByName(el);
 for(var i=0;i<cbox.length;i++) cbox[i].checked=cb.checked;
 }
 function fmt(){
-var opt=document.getElementsByName("fopt[]"),ff=document.getElementsByName("ffmt[]"),from=2,to=opt.length,ch="",ft=document.getElementsByName("ftype")[0];
+var opt=document.getElementsByName("fopt[]"),ff=document.getElementsByName("ffmt[]"),to=opt.length,ch="",ft=document.getElementsByName("ftype")[0];
 for(var j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
 if(document.getElementById('tbs'))dbx('tbs');
 if(ch=="sql"){
 for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
 }else if(ch=="doc" || ch=="xml"){
-for(var k=0;k<from;k++) opt[k].parentElement.style.display="block";
-for(var k=2;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=false;}
+var n=ch=="xml"?4:2;
+for(var k=0;k<n;k++) opt[k].parentElement.style.display="block";
+for(var k=n;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=false}
 }else{
-for(var i=0;i<to;i++) opt[i].parentElement.style.display="none";
+for(var i=0;i<to;i++) {opt[i].parentElement.style.display="none";opt[i].checked=false}
 }
 }
 function dbx(el='dbs'){
