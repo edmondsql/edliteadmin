@@ -6,7 +6,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.16.6";
+$version="3.17";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -166,7 +166,7 @@ class ED {
 		} else {
 		$this->redir("50");
 		}
-		if(in_array('1',$level)) {//exist db
+		if(in_array('1',$level)) {//check db
 		$op=$this->sg[0];
 		$db=$this->sg[1];
 		$dbx=$this->dir.$db.$this->ext;
@@ -256,44 +256,41 @@ class ED {
 		$nrf_op.="<option value='$f'>$f</option>";
 		++$f;
 		}
-		if($left==1) $str.="<div class='col1'><h3>Run sql</h3>
-		".$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run</button></form>
+		if($left==1) $str.="<div class='col1'>".
+		$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run sql</button></form>
 		<h3>Import</h3><small>sql, csv, json, xml, sqlite, gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
 		<input type='hidden' name='send' value='ff' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
 		<h3>Create Table</h3>".$this->form("6/$db")."<input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>$nrf_op</select><br/><button type='submit'>Create</button></form>
 		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
-		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a>
-		</div><div class='col2'>";
+		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
 		return $str;
 	}
 	public function pg_number($pg,$totalpg) {
 		if($totalpg > 1) {
-		if($this->sg[0]==20) $link=$this->path."20/".$this->sg[1]."/".$this->sg[2];
-		elseif($this->sg[0]==5) $link=$this->path."5/".$this->sg[1];
+		if($this->sg[0]==20) $lnk=$this->path."20/".$this->sg[1]."/".$this->sg[2];
+		elseif($this->sg[0]==5) $lnk=$this->path."5/".$this->sg[1];
 		$pgs='';$k=1;
 		while($k <=$totalpg) {
-		$pgs.="<option ".(($k==$pg) ? "selected>":"value='$link/$k'>")."$k</option>";
+		$pgs.="<option ".(($k==$pg) ? "selected>":"value='$lnk/$k'>")."$k</option>";
 		++$k;
 		}
-		$lft=($pg>1?"<a href='$link/1'>First</a><a href='$link/".($pg-1)."'>Prev</a>":"");
-		$rgt=($pg < $totalpg?"<a href='$link/".($pg+1)."'>Next</a><a href='$link/$totalpg'>Last</a>":"");
+		$lft=($pg>1?"<a href='$lnk/1'>First</a><a href='$lnk/".($pg-1)."'>Prev</a>":"");
+		$rgt=($pg < $totalpg?"<a href='$lnk/".($pg+1)."'>Next</a><a href='$lnk/$totalpg'>Last</a>":"");
 		return "<div class='pg'>".$lft."<select onchange='location=this.value;'>$pgs</select>".$rgt."</div>";
 		}
 	}
-	public function imp_csv($fname,$fbody) {
+	public function imp_csv($fname,$body) {
 		$exist=$this->con->query("SELECT 1 FROM sqlite_master WHERE name='$fname' AND type='table'",true)->fetch();
 		if(!$exist) $this->redir("5/".$this->sg[1],['err'=>"Table not exist"]);
 		$fname=$this->sanitize($fname);
 		$e=[];
-		if(@is_file($fbody)) $fbody=file_get_contents($fbody);
-		$fbody=$this->utf($fbody);
-		$fbody=preg_replace('/^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE/','',$fbody);
-		//delimiter
-		$delims=[';'=> 0,','=> 0];
-		foreach($delims as $dl=> &$cnt) $cnt=count(str_getcsv($fbody,$dl));
+		if(@is_file($body)) $body=file_get_contents($body);
+		$body=$this->utf($body);
+		$body=preg_replace('/^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE/','',$body);
+		$delims=[';'=> 0,','=> 0];//delimiter
+		foreach($delims as $dl=> &$cnt) $cnt=count(str_getcsv($body,$dl));
 		$mark=array_search(max($delims),$delims);
-		//data
-		$data=explode("\n",str_replace(["\r\n","\n\r","\r"],"\n",$fbody));
+		$data=explode("\n",str_replace(["\r\n","\n\r","\r"],"\n",$body));
 		$row=null;
 		foreach($data as $item) {
 		$row.=$item;
@@ -311,41 +308,42 @@ class ED {
 		if($k>0) {
 		$e1="INSERT INTO $fname (".implode(',',$rows[0]).") VALUES(";
 		foreach($rw as $r) $e1.=(is_numeric($r)?$r:"'".str_replace("'","''",$r)."'").',';
-		$e[]=substr($e1,0,-1).");";
+		$e[]=[substr($e1,0,-1).");"];
 		}
 		}
 		if(empty($e)) $this->redir("5/".$this->sg[1],['err'=>"Query failed"]);
 		return $e;
 	}
-	public function imp_json($fname,$fbody) {
+	public function imp_json($fname,$body) {
 		$exist=$this->con->query("SELECT 1 FROM sqlite_master WHERE name='$fname' AND type='table'",true)->fetch();
 		if(!$exist) $this->redir("5/".$this->sg[1],['err'=>"Table not exist"]);
 		$e=[];
-		if(@is_file($fbody)) $fbody=file_get_contents($fbody);
-		$fbody=$this->utf($fbody);
+		if(@is_file($body)) $body=file_get_contents($body);
+		$body=$this->utf($body);
 		$rgxj="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\/\/).*\n*|(\/\*)*.*(\*\/)\n*|((\"*.*\")*('*.*')*)(*SKIP)(*F)~";
-		$ex=preg_split($rgxj,$fbody,-1,PREG_SPLIT_NO_EMPTY);
+		$ex=preg_split($rgxj,$body,-1,PREG_SPLIT_NO_EMPTY);
 		$lines=json_decode($ex[0],true);
 		$jr='';
 		foreach($lines[0] as $k=>$li) $jr.=$k.",";
 		foreach($lines as $line) {
 		$jv='';
 		foreach($line as $ky=>$el) $jv.=(is_numeric($el)?$el:"'".$el."'").",";
-		$e[]="INSERT INTO $fname (".substr($jr,0,-1).") VALUES (".substr($jv,0,-1).")";
+		$e[]=["INSERT INTO $fname (".substr($jr,0,-1).") VALUES (".substr($jv,0,-1).")"];
 		}
 		return $e;
 	}
-	public function imp_xml($fname,$fbody) {
+	public function imp_xml($body) {
 		$e=[];
-		if(@is_file($fbody)) $fbody=file_get_contents($fbody);
-		$fbody=$this->utf($fbody);
+		if(@is_file($body)) $body=file_get_contents($body);
+		$body=$this->utf($body);
 		libxml_use_internal_errors(false);
-		$xml=simplexml_load_string($fbody,"SimpleXMLElement",LIBXML_COMPACT);
+		$xml=simplexml_load_string($body,"SimpleXMLElement",LIBXML_COMPACT);
 		$nspace=$xml->getNameSpaces(true);
 		$ns=key($nspace);
 		//structure
-		//$db=(string)$xml->xpath('//database')[0]->attributes();
 		$sq=[];
+		$db=(string)$xml->xpath('//database')[0]->attributes();
+		$sq[]=["DATABASE $db"];
 		if(isset($nspace[$ns]) && isset($xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'})) {
 		$stru=$xml->children($nspace[$ns])->{'structure_schemas'}->{'database'}->{'table'};
 		foreach($stru as $st) $sq[]=explode(";",str_replace("\t\t\t","",(string)$st));
@@ -363,17 +361,17 @@ class ED {
 		}
 		if($co!='' && $va!='') $e[]="INSERT INTO \"".(string)$tt['name']."\"(".substr($co,0,-1).") VALUES(".substr($va,0,-1).");";
 		}
-		return array_merge($sq,$e);
+		return [array_merge($sq,$e)];
 	}
-	public function imp_sqlite($fname,$fbody) {
+	public function imp_sqlite($fname,$body) {
 		$res=[];
-		if(substr($fbody,0,15) !="SQLite format 3") $res[$fname]="No sqlite file";
+		if(substr($body,0,15) !="SQLite format 3") $res[$fname]="No sqlite file";
 		$file=pathinfo($fname);
 		$new=$this->dir.$this->sanitize($file['filename']).$this->ext;
 		if(!file_exists($new)) {
 		$sfile=fopen($new,"wb");
 		if(!$sfile) $res[$fname]="Unable to create sqlite file";
-		fwrite($sfile,$fbody);
+		fwrite($sfile,$body);
 		fclose($sfile);
 		} else $res[$fname]="File already exists";
 		return $res;
@@ -394,7 +392,6 @@ class ED {
 		foreach($q_tidx->fetch(1) as $r_ix) {
 		if($r_ix[0]) $val.=$tab.$r_ix[0].";\n";
 		}
-		$val.="\n";
 		}
 		return $val;
 	}
@@ -415,7 +412,7 @@ class ED {
 			}
 		}
 		$dbx=NULL;
-		return [$tbs, $vws];
+		return [$tbs,$vws];
 	}
 }
 $ed=new ED;
@@ -458,7 +455,7 @@ textarea{white-space:pre-wrap}
 .l3,tr:hover.r,button:hover{background:#fe3 !important}
 .ok,.err,.l2 li,.mn>li{display:inline-block;zoom:1}
 .col1,.col2{display:table-cell}
-.col1{vertical-align:top;padding:0 3px;min-width:180px}
+.col1{vertical-align:top;padding:3px}
 .col1,.dw{width:180px}
 .col2 table{margin:3px}
 .col3 table,.dw{margin:3px auto}
@@ -494,10 +491,10 @@ break;
 case "2"://create db
 	$ed->check();
 	if($ed->post('dbc','!e')) {
-	$db=$ed->sanitize($ed->post('dbc'));
-	if(@is_file($ed->dir.$db.$ed->ext)) $ed->redir("",['err'=>"DB already exist"]);
-	$ed->con=new DBT($ed->dir.$db.$ed->ext);
-	if(@is_file($ed->dir.$db.$ed->ext)) $ed->redir("",['ok'=>"Created DB"]);
+	$db=$ed->dir.$ed->sanitize($ed->post('dbc')).$ed->ext;
+	if(@is_file($db)) $ed->redir("",['err'=>"DB already exist"]);
+	new DBT($db);
+	if(@is_file($db)) $ed->redir("",['ok'=>"Created DB"]);
 	else $ed->redir("",['err'=>"Create DB failed"]);
 	}
 	$ed->redir("",['err'=>"DB name must not be empty"]);
@@ -819,7 +816,7 @@ case "13"://drop field
 	$q_f=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	$qr='';$pk='';$fk='';$re='';
 	foreach($q_f as $r_f) {
-	if($r_f[1]!=$fn){
+	if($r_f[1]!=$fn) {
 	$qr.=$r_f[1]." ".$r_f[2].($r_f[3]!=0 ? " NOT NULL":"").($r_f[4]!='' ? " DEFAULT ".$r_f[4]:"").",";
 	$re.=$r_f[1].",";
 	if($r_f[5]) $pk.=$r_f[1].",";
@@ -921,7 +918,6 @@ case "20"://table browse
 	}
 	$offset=($pg - 1) * $step;
 	$q_rex=$ed->con->query("SELECT * FROM {$tb}{$where} LIMIT $offset,$step");
-
 	$cols=$q_rex->num_col();
 	$r_col=$q_rex->fetch(2);
 	$q_vws=$ed->con->query("SELECT type FROM sqlite_master WHERE name='$tb'",true)->fetch();
@@ -962,8 +958,7 @@ case "20"://table browse
 		echo "</tr>";
 	}
 	}
-	echo "</table>";
-	echo $ed->pg_number($pg,$totalpg);
+	echo "</table>".$ed->pg_number($pg,$totalpg);
 break;
 
 case "21"://insert row
@@ -1009,9 +1004,7 @@ case "21"://insert row
 		foreach($q_pra as $r_pra) {
 			echo "<tr><td>".$r_pra['name']."</td><td>";
 			if(strtolower($r_pra['type'])=="boolean") {
-			foreach($bbs as $kj=>$bb) {
-			echo "<input type='radio' name='r".$r_pra['cid']."[]' value='$kj' /> $bb ";
-			}
+			foreach($bbs as $kj=>$bb) echo "<input type='radio' name='r".$r_pra['cid']."[]' value='$kj' /> $bb ";
 			} elseif(strtolower($r_pra['type'])=="blob") {
 			echo "<input type='file' name='r".$r_pra['cid']."' />";
 			} elseif(strtolower($r_pra['type'])=="text") {
@@ -1064,9 +1057,7 @@ case "22"://edit row
 			$typ=strtolower($r_ed['type']);
 			echo "<tr><td>".$r_ed['name']."</td><td>";
 			if($typ=="boolean") {
-			foreach($bbs as $kk=>$bb) {
-			echo "<input type='radio' name='d".$nr."[]' value='$kk'".($arr[0][$nr]==$kk ? " checked":"")." /> $bb ";
-			}
+			foreach($bbs as $kk=>$bb) echo "<input type='radio' name='d".$nr."[]' value='$kk'".($arr[0][$nr]==$kk ? " checked":"")." /> $bb ";
 			} elseif($typ=="blob") {
 			echo "[blob] ".number_format((strlen($arr[0][$nr])/1024),2)." KB<br/><input type='file' name='d".$nr."' />";
 			} elseif($typ=="text") {
@@ -1097,16 +1088,14 @@ case "24"://search
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
 	unset($_SESSION['_litesearch_'.$db.'_'.$tb]);
-	if(!empty($ed->sg[3]) && $ed->sg[3]=='reset') {
-	$ed->redir("20/$db/$tb",['ok'=>"Reset search"]);
-	}
+	if(!empty($ed->sg[3]) && $ed->sg[3]=='reset') $ed->redir("20/$db/$tb",['ok'=>"Reset search"]);
 	$q_se=$ed->con->query("PRAGMA table_info($tb)")->fetch(2);
 	$cond1=['=','&lt;','&gt;','&lt;=','&gt;=','!=','LIKE','NOT LIKE','REGEXP','NOT REGEXP'];
 	$cond2=['BETWEEN','NOT BETWEEN'];
 	$cond3=['IN','NOT IN'];
 	$cond4=['IS NULL','IS NOT NULL'];
 	$cond=array_merge($cond1,$cond2,$cond3,$cond4);
-	if($ed->post('search','i')) {//post
+	if($ed->post('search','i')) {
 	$search_cond=[];
 	foreach($q_se as $r_se) {
 		if($ed->post($r_se['name'],'!e') || in_array($ed->post('cond__'.$r_se['name']),$cond4)) {
@@ -1169,8 +1158,9 @@ case "27"://analyze
 	$ops=['analyze'];
 	if(!empty($op) && in_array($op,$ops)) {
 	$ed->con->exec("$op $tb");
-	$ed->redir("10/$db/$tb",['ok'=>"Successfully $op runed"]);
-	} else $ed->redir("10/$db/$tb",['err'=>"Action $op failed"]);
+	$msg=['ok'=>"Successfully $op runned"];
+	} else $msg=['err'=>"Action $op failed"];
+	$ed->redir("10/$db/$tb",$msg);
 break;
 
 case "30"://import
@@ -1180,7 +1170,7 @@ case "30"://import
 	@set_time_limit(7200);
 	$e='';
 	$rgex="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/;*)|\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
-	if($ed->post('qtxt','!e')) {//in textarea
+	if($ed->post('qtxt','!e')) {//run text
 		$qtxt=$ed->post('qtxt');
 		if(preg_match('/^\b(select)\b/is',$qtxt)) {//run select
 			$q_sel=$ed->con->query($qtxt);
@@ -1198,7 +1188,7 @@ case "30"://import
 			echo "</table>";
 			} else $ed->redir("5/$db",['err'=>"Wrong query"]);
 		} else {
-			$e=preg_split($rgex,$qtxt,-1,PREG_SPLIT_NO_EMPTY);//import sql
+			$e=[preg_split($rgex,$qtxt,-1,PREG_SPLIT_NO_EMPTY)];//import sql
 		}
 	} elseif($ed->post('send','i') && $ed->post('send')=="ff") {//from file
 		if(empty($_FILES['importfile']['tmp_name'])) {
@@ -1206,18 +1196,18 @@ case "30"://import
 		} else {
 			$tmp=$_FILES['importfile']['tmp_name']; $file=$_FILES['importfile']['name']; $lite=[];
 			preg_match("/^(.*)\.(sql|csv|json|xml|db|sqlite|gz|zip)$/i",$file,$fext);
-			if($fext[2]=='sql') {//sql file
+			if($fext[2]=='sql') {
 				$fi=$ed->utf(file_get_contents($tmp));
-				$e=preg_split($rgex,$fi,-1,PREG_SPLIT_NO_EMPTY);
-			} elseif($fext[2]=='csv') {//csv file
+				$e=[array_merge(["DATABASE ".$fext[1]],preg_split($rgex,$fi,-1,PREG_SPLIT_NO_EMPTY))];
+			} elseif($fext[2]=='csv') {
 				$e=$ed->imp_csv($fext[1],$tmp);
-			} elseif($fext[2]=='json') {//json file
+			} elseif($fext[2]=='json') {
 				$e=$ed->imp_json($fext[1],$tmp);
-			} elseif($fext[2]=='xml') {//xml file
-				$e=$ed->imp_xml($fext[1],$tmp);
-			} elseif(in_array($fext[2],['db',substr($ed->ext,1)])) {//sqlite file
+			} elseif($fext[2]=='xml') {
+				$e=$ed->imp_xml($tmp);
+			} elseif(in_array($fext[2],['db',substr($ed->ext,1)])) {
 				$lite[]=$ed->imp_sqlite($fext[1],file_get_contents($tmp));
-			} elseif($fext[2]=='gz') {//gz file
+			} elseif($fext[2]=='gz') {
 				if(($fgz=fopen($tmp,'r')) !==FALSE) {
 				if(@fread($fgz,3) !="\x1F\x8B\x08") $ed->redir("5/$db",['err'=>"Not a valid GZ file"]);
 				fclose($fgz);
@@ -1231,10 +1221,10 @@ case "30"://import
 					$e.=gzgetc($gzfile);
 					}
 					gzclose($gzfile);
-					if($ex[2]=='sql') $e=preg_split($rgex,$ed->utf($e),-1,PREG_SPLIT_NO_EMPTY);
+					if($ex[2]=='sql') $e=[array_merge(["DATABASE ".$ex[1]],preg_split($rgex,$ed->utf($e),-1,PREG_SPLIT_NO_EMPTY))];
 					elseif($ex[2]=='csv') $e=$ed->imp_csv($ex[1],$e);
 					elseif($ex[2]=='json') $e=$ed->imp_json($ex[1],$e);
-					elseif($ex[2]=='xml') $e=$ed->imp_xml($ex[1],$e);
+					elseif($ex[2]=='xml') $e=$ed->imp_xml($e);
 					elseif(in_array($ex[2],['db',substr($ed->ext,1)])) $lite[]=$ed->imp_sqlite($ex[1],$e);
 					elseif($ex[2]=='tar') {
 						$fh=gzopen($tmp,'rb');
@@ -1250,10 +1240,10 @@ case "30"://import
 						$f_b=substr($block,0,$file['size']);
 						$fi=trim($file['name']);
 						preg_match("/^(.*)\.(sql|csv|json|xml|db|sqlite)$/i",$fi,$fx);
-						if($fx[2]=='sql') $e[]=preg_split($rgex,$ed->utf($f_b),-1,PREG_SPLIT_NO_EMPTY);
+						if($fx[2]=='sql') $e[]=[array_merge(["DATABASE ".$fx[1]],preg_split($rgex,$ed->utf($f_b),-1,PREG_SPLIT_NO_EMPTY))];
 						elseif($fx[2]=='csv') $e[]=$ed->imp_csv($fx[1],$f_b);
 						elseif($fx[2]=='json') $e[]=$ed->imp_json($fx[1],$f_b);
-						elseif($fx[2]=='xml') $e[]=$ed->imp_xml($fx[1],$f_b);
+						elseif($fx[2]=='xml') $e[]=$ed->imp_xml($f_b);
 						elseif(in_array($fx[2],['db',substr($ed->ext,1)])) $lite[]=$ed->imp_sqlite($fx[1],$f_b);
 						$total+=$file['bytes'];
 						}
@@ -1265,7 +1255,7 @@ case "30"://import
 				} else {
 					$ed->redir("5/$db",['err'=>"Can't open GZ file"]);
 				}
-			} elseif($fext[2]=='zip') {//zip file
+			} elseif($fext[2]=='zip') {
 				if(($fzip=fopen($tmp,'r')) !==FALSE) {
 					if(@fread($fzip,4) !="\x50\x4B\x03\x04") $ed->redir("5/$db",['err'=>"Not a valid ZIP file"]);
 					fclose($fzip);
@@ -1280,10 +1270,10 @@ case "30"://import
 					$buf=$zip->getFromName($zentry);
 					preg_match("/^(.*)\.(sql|csv|json|xml|db|sqlite)$/i",$zentry,$zn);
 					if(!empty($zn[2])) {
-					if($zn[2]=='sql') $e[]=preg_split($rgex,$ed->utf($buf),-1,PREG_SPLIT_NO_EMPTY);
+					if($zn[2]=='sql') $e[]=[array_merge(["DATABASE ".$zn[1]],preg_split($rgex,$ed->utf($buf),-1,PREG_SPLIT_NO_EMPTY))];
 					elseif($zn[2]=='csv') $e[]=$ed->imp_csv($zn[1],$buf);
 					elseif($zn[2]=='json') $e[]=$ed->imp_json($zn[1],$buf);
-					elseif($zn[2]=='xml') $e[]=$ed->imp_xml($zn[1],$buf);
+					elseif($zn[2]=='xml') $e[]=$ed->imp_xml($buf);
 					elseif(in_array($zn[2],['db',substr($ed->ext,1)])) $lite[$i]=$ed->imp_sqlite($zn[1],$buf);
 					}
 					++$i;
@@ -1302,16 +1292,19 @@ case "30"://import
 	if(!empty($lite)) {
 		echo $head.$ed->menu($db)."<div class='col2'><p>Upload: <b>".count($lite)." SQLite file(s)</b></p>";
 		$lt=call_user_func_array('array_merge',$lite);
-		foreach($lt as $k=>$l) {
-		echo "SQLite <b>$k</b>: $l<br/>";
-		}
+		foreach($lt as $k=>$l) echo "SQLite <b>$k</b>: $l<br/>";
 	}
 	if(!empty($e) && is_array($e)) {
-		set_error_handler(function() {});
+		set_error_handler(function(){});
+		foreach($e as $ar) {
+		if(substr($ar[0],0,8)=='DATABASE') {
+		$db=substr($ar[0],9);array_shift($ar);
+		$ed->con=new DBT($ed->dir.$db.$ed->ext);
+		}
 		$ed->con->exec("PRAGMA foreign_keys=0");
 		$ed->con->exec("BEGIN TRANSACTION");
-		foreach($e as $qry) {
-			if(!empty($qry)) {
+		foreach($ar as $qry) {
+			if(!empty(trim($qry))) {
 				$qry=str_replace(["\'","\\n"],["''","\n"],$qry);
 				$exc=$ed->con->query($qry);
 				$op=['insert','update','delete'];
@@ -1331,7 +1324,8 @@ case "30"://import
 			}
 		}
 		$ed->con->exec("COMMIT");
-		echo $head.$ed->menu($db)."<div class='col2'><p>Successfully executed: <b>$q quer".($q>1?'ies':'y')."</b></p>$out";
+		}
+		echo $head.$ed->menu($db)."<div class='col2'><p>Successfully executed: <b>$q query</b></p>$out";
 	}
 break;
 
@@ -1365,26 +1359,18 @@ case "31"://export form
 	echo $ed->menu($db,'',2).$ed->form("32/$db").$div."<h3>Select table(s)</h3>
 	<p><input type='checkbox' onchange='selectall(this,\"tbs\");dbx(\"tbs\")' /> All/None</p>
 	<select id='tbs' name='tbs[]' multiple='multiple' onchange='dbx(\"tbs\")'>";
-	foreach($r_tts as $tts) {
-	echo "<option value='$tts'>$tts</option>";
-	}
+	foreach($r_tts as $tts) echo "<option value='$tts'>$tts</option>";
 	}
 	echo "</select><h3><input type='checkbox' onchange='toggle(this,\"fopt[]\");fmt()' /> Options</h3>";
 	$opts=['structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers'];
-	foreach($opts as $k=> $opt) {
-	echo "<p><input type='checkbox' name='fopt[]' value='$k' /> $opt</p>";
-	}
+	foreach($opts as $k=> $opt) echo "<p><input type='checkbox' name='fopt[]' value='$k' /> $opt</p>";
 	echo "<h3>File format</h3>";
 	$ffo=['sql'=>'SQL','sqlite'=>'SQLite','xls'=>'Spreadsheet','xml'=>'XML','doc'=>'Word'];
 	if(!empty($ed->sg[1])) $ffo=array_merge($ffo,['json'=>'JSON','csv1'=>'CSV,','csv2'=>'CSV;']);
-	foreach($ffo as $k=> $ff) {
-	echo "<p><input type='radio' name='ffmt[]' onchange='fmt()' value='$k'".($k=='sql' ? ' checked':'')." /> $ff</p>";
-	}
+	foreach($ffo as $k=> $ff) echo "<p><input type='radio' name='ffmt[]' onchange='fmt()' value='$k'".($k=='sql' ? ' checked':'')." /> $ff</p>";
 	echo "<h3>File compression</h3><p><select name='ftype'>";
-	$fty=['plain'=>'None','zip'=>'Zip','gzip'=>'GZ'];
-	foreach($fty as $k=> $ft) {
-	echo "<option value='$k'>$ft</option>";
-	}
+	$fty=['plain'=>'None','zip'=>'Zip','gz'=>'GZ'];
+	foreach($fty as $k=> $ft) echo "<option value='$k'>$ft</option>";
 	echo "</select></p><button type='submit' name='exp'>Export</button></div></form>";
 break;
 
@@ -1408,7 +1394,7 @@ case "32"://export
 		$ed->con=new DBT($ed->dir.$db.$ed->ext);
 		list($tbs,$vws)=$ed->getTables($ed->con);
 	}
-	if($ffmt[0]=='sql') {//data sql
+	if($ffmt[0]=='sql') {//sql
 		$ffty="text/plain"; $ffext=".sql"; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
 		foreach($dbs as $db) {
 		$sq="-- EdLiteAdmin $version SQL Dump\n";
@@ -1466,8 +1452,8 @@ case "32"://export
 				}
 			}
 		}
-		if($ftype!="plain") $sql[$db.$ffext]=$sq;
-		else $sql=$sq;
+		$sql[$db.$ffext]=$sq;
+		if($ftype=="plain" || count($dbs)<2) $sql=$sql[$db.$ffext];
 		}
 	} elseif($ffmt[0]=='csv1' || $ffmt[0]=='csv2') {//csv
 		$ffty="text/csv"; $ffext=".csv"; $fname=$db.$ffext;
@@ -1496,7 +1482,7 @@ case "32"://export
 			}
 			$sql[$tb.$ffext]=$sq;
 		}
-		if($ftype=="plain") {
+		if($ftype=="plain" || count($tbs)<2) {
 		$fname=$tbs[0].$ffext;
 		$sql=$sql[$fname];
 		}
@@ -1517,7 +1503,7 @@ case "32"://export
 			}
 			$sql[$tb.$ffext]=$sq;
 		}
-		if($ftype=="plain") {
+		if($ftype=="plain" || count($tbs)<2) {
 		$fname=$tbs[0].$ffext;
 		$sql=$sql[$fname];
 		}
@@ -1555,7 +1541,7 @@ case "32"://export
 		$sq.=$wh.$wb;
 		}
 		$sq.='</body></html>';
-		if($ftype!="plain") $sql[$db.$ffext]=$sq;
+		if($ftype!="plain" && count($dbs)>1) $sql[$db.$ffext]=$sq;
 		else $sql=$sq;
 		}
 	} elseif($ffmt[0]=='xls') {//xls
@@ -1580,7 +1566,7 @@ case "32"://export
 			$sq.=$xh.'</Table></Worksheet>';
 		}
 		$sq.='</Workbook>';
-		if($ftype!="plain") $sql[$db.$ffext]=$sq;
+		if($ftype!="plain" && count($dbs)>1) $sql[$db.$ffext]=$sq;
 		else $sql=$sq;
 		}
 	} elseif($ffmt[0]=='xml') {//xml
@@ -1619,20 +1605,19 @@ case "32"://export
 		}
 		$sq2.="\n\t</database>";
 		}
-		$sq.=(empty($tbs)?'':$sq2)."\n</export>";
-		if($ftype!="plain") $sql[$db.$ffext]=$sq;
+		$sq.=$sq2."\n</export>";
+		if($ftype!="plain" && count($dbs)>1) $sql[$db.$ffext]=$sq;
 		else $sql=$sq;
 		}
 	} elseif($ffmt[0]=='sqlite') {//sqlite
 		$ffty="application/octet-stream"; $ffext=$ed->ext; $fname=(count($dbs)>1 ? 'all':$dbs[0]).$ffext;
-		$sql=[];
 		foreach($dbs as $db) {
 		$sql[$db.$ed->ext]=file_get_contents($ed->dir.$db.$ed->ext);
-		if($ftype=="plain") $sql=$sql[$db.$ed->ext];
+		if($ftype=="plain" || count($dbs)<2) $sql=$sql[$db.$ed->ext];
 		}
 	}
 
-	if($ftype=="gzip") {//gzip
+	if($ftype=="gz") {//gz
 		$zty="application/x-gzip"; $zext=".gz";
 		ini_set('zlib.output_compression','Off');
 		if(is_array($sql) && count($sql)>1) {
@@ -1703,7 +1688,7 @@ case "32"://export
 	die($sql);
 break;
 
-case "33": //blob download
+case "33"://blob download
 	$ed->check([1,2,3],['redir'=>20]);
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
@@ -1804,7 +1789,6 @@ case "41"://trigger
 		echo $head.$ed->menu($db,'',2,[$ty,$sp]).$ed->form("41/$db/$sp/$ty");
 		$t_lbl="Edit";
 	}
-
 	echo "<table><tr><th colspan='2'>$t_lbl Trigger</th></tr><tr><td>Trigger Name</td><td><input type='text' name='utg1' value='".$r_tge[1]."'/></td></tr><tr><td>Table</td><td><select name='utg4'>";
 	$q_tbs=$ed->con->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")->fetch(1);
 	foreach($q_tbs as $tgt) {
@@ -1883,8 +1867,8 @@ $(".msg .err").on("click",function(){$(".msg").remove();});
 $(document).on("keyup",function(e){
 e.preventDefault();
 if($(".msg").is("div")){
-if(e.which==32 || e.which==89) window.location=hrf;
-if(e.which==27 || e.which==78) $(".msg").remove();
+if(e.which==32||e.which==89) window.location=hrf;
+if(e.which==27||e.which==78) $(".msg").remove();
 }
 });
 });
@@ -1908,8 +1892,8 @@ item.removeClass("drag");
 var reord=[];
 base.find("tr").each(function(i,d){reord[i]=$(d).prop("id");});
 drag=false;
-var ell=[];
-for(var elx of els){ell.push($(elx).id);}
+var elx,ell=[];
+for(elx of els){ell.push($(elx).id);}
 if(ell !=reord){
 var xhr=new window.XMLHttpRequest();
 xhr.open("POST","<?=$ed->path.'9/'.(empty($ed->sg[1])?'':$ed->sg[1].'/').(empty($ed->sg[2])?'':$ed->sg[2])?>");
@@ -1923,31 +1907,31 @@ xhr.send("reord="+reord);
 });
 });
 function selectall(cb,lb){
-var multi=document.getElementById(lb);
-if(cb.checked) for(var i=0;i<multi.options.length;i++) multi.options[i].selected=true;
+var i,multi=document.getElementById(lb);
+if(cb.checked) for(i=0;i<multi.options.length;i++) multi.options[i].selected=true;
 else multi.selectedIndex=-1;
 }
 function toggle(cb,el){
-var cbox=document.getElementsByName(el);
-for(var i=0;i<cbox.length;i++) cbox[i].checked=cb.checked;
+var i,cbox=document.getElementsByName(el);
+for(i=0;i<cbox.length;i++) cbox[i].checked=cb.checked;
 }
 function fmt(){
-var opt=document.getElementsByName("fopt[]"),ff=document.getElementsByName("ffmt[]"),to=opt.length,ch="",ft=document.getElementsByName("ftype")[0];
-for(var j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
+var j,opt=document.getElementsByName("fopt[]"),ff=document.getElementsByName("ffmt[]"),to=opt.length,ch="",ft=document.getElementsByName("ftype")[0];
+for(j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
 if(document.getElementById('tbs'))dbx('tbs');
 if(ch=="sql"){
 for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
 }else if(ch=="doc" || ch=="xml"){
-var n=ch=="xml"?4:2;
-for(var k=0;k<n;k++) opt[k].parentElement.style.display="block";
-for(var k=n;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=false}
+var k,n=ch=="xml"?4:2;
+for(k=0;k<n;k++) opt[k].parentElement.style.display="block";
+for(k=n;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=false}
 }else{
 for(var i=0;i<to;i++) {opt[i].parentElement.style.display="none";opt[i].checked=false}
 }
 }
 function dbx(el='dbs'){
-var ch="",ft=document.getElementsByName("ftype")[0],ff=document.getElementsByName("ffmt[]"),db=document.querySelectorAll("#"+el+" option:checked").length,dbs=document.getElementById('dbs'),arr=["json","csv1","csv2"];
-for(var j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
+var j,ch="",ft=document.getElementsByName("ftype")[0],ff=document.getElementsByName("ffmt[]"),db=document.querySelectorAll("#"+el+" option:checked").length,dbs=document.getElementById('dbs'),arr=["json","csv1","csv2"];
+for(j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
 if(ft[0].value!="plain"){
 if((db<2 && (dbs||arr.indexOf(ch)>-1))||(db>1 && (dbs||arr.indexOf(ch)==-1))){
 var op=document.createElement("option");
