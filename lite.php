@@ -1,12 +1,11 @@
 <?php
 error_reporting(E_ALL);
-if(version_compare(PHP_VERSION,'5.4.0','<')) die('Require PHP 5.4 or higher');
 if(!extension_loaded('sqlite3') && !extension_loaded('pdo_sqlite')) die('Install sqlite3 or pdo_sqlite extension!');
 session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.17";
+$version="3.18";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 $js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
@@ -419,7 +418,7 @@ $ed=new ED;
 $head='<!DOCTYPE html><html lang="en"><head>
 <title>EdLiteAdmin</title><meta charset="utf-8">
 <style>
-*{margin:0;padding:0;font-size:12px;color:#333;font-family:Arial}
+*{margin:0;padding:0;font-size:14px;color:#333;font-family:Arial}
 html{-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;background:#fff}
 html,textarea{overflow:auto}
 .container{overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden;white-space:nowrap;scrollbar-width:thin}
