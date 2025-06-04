@@ -5,10 +5,9 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.18";
+$version="3.19";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
-$js=(file_exists('jquery.js')?"/jquery.js":"https://code.jquery.com/jquery-1.12.4.min.js");
 class DBT {
 	public static $litetype=['sqlite3','pdo_sqlite'];
 	private static $instance=NULL;
@@ -440,12 +439,12 @@ table a,.l1 a,.l2 a,.col1 a{padding:0 3px}
 table{border-collapse:collapse;border-spacing:0;border-bottom:1px solid #555}
 td,th{padding:4px;vertical-align:top}
 input[type=checkbox],input[type=radio]{position:relative;vertical-align:middle;bottom:1px}
-input[type=text],input[type=password],input[type=file],textarea,button,select{width:100%;padding:2px;border:1px solid #9be;outline:none;-webkit-border-radius:3px;-moz-border-radius:3px;border-radius:3px;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}
+input[type=text],input[type=password],input[type=file],textarea,button,select{width:100%;padding:2px;border:1px solid #9be;outline:none;border-radius:3px;box-sizing:border-box}
 select{padding:1px 0}
 optgroup option{padding-left:8px}
 textarea{white-space:pre-wrap}
 .msg{position:absolute;top:0;right:0;z-index:9}
-.ok,.err{padding:8px;font-weight:bold;font-size:13px}
+.ok,.err{padding:8px;font-weight:bold;font-size:14px}
 .ok{background:#efe;color:#080;border-bottom:2px solid #080}
 .err{background:#fee;color:#f00;border-bottom:2px solid #f00}
 .l1,th,button{background:#9be}
@@ -460,13 +459,12 @@ textarea{white-space:pre-wrap}
 .col3 table,.dw{margin:3px auto}
 .auto button,.auto input,.auto select{width:auto}
 .l3.auto select{border:0;padding:0;background:#fe3}
-.sort tbody tr{cursor:default;position:relative}
-.handle{font:18px/12px Arial;vertical-align:middle}
-.handle:hover{cursor:move}
-.opacity{opacity:0.7}
-.drag{opacity:1;top:3px;left:0}
 .l1,.l2,.l3{width:100%}
 .msg,.a{cursor:pointer}
+.handle{font:1.25rem/.75rem Arial;font-weight:bold;vertical-align:middle}
+.handle:hover{cursor:move}
+tr.dragging{opacity:0.5}
+tr.drag-over{background:#9be}
 </style>
 </head><body>'.(empty($_SESSION['ok'])?'':'<div class="msg ok">'.$_SESSION['ok'].'</div>').(empty($_SESSION['err'])?'':'<div class="msg err">'.$_SESSION['err'].'</div>').'<div class="l1"><b><a href="https://github.com/edmondsql/edliteadmin">EdLiteAdmin '.$version.'</a></b>'.(isset($ed->sg[0]) && $ed->sg[0]==50 ? "":'<ul class="mn m1"><li>More <small>&#9660;</small><ul><li><a href="'.$ed->path.'60">Info</a></li></ul></li><li><a href="'.$ed->path.'51">Logout</a></li></ul>').'</div>';
 $stru="<table><caption>Structure</caption><tr><th>Field</th><th>Type</th><th>Value</th><th>Null</th><th>Default</th></tr>";
@@ -703,7 +701,7 @@ case "10"://structure
 	$q_rec=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec) {
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg' id='".$rec[1]."'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]>0 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span class='handle' title='move'>&#10070;</span></td></tr>";
+		echo "<tr class='r c$bg' id='".$rec[1]."'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]>0 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span draggable='true' class='handle' title='move'>&#x21F5;</span></td></tr>";
 	}
 	echo "</tbody><tfoot><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a></div></td></tr></tfoot></table></form>";
 	$q_idx=$ed->con->query("PRAGMA index_list($tb)")->fetch(1);
@@ -1850,50 +1848,85 @@ break;
 $ed->con=null;
 unset($_POST,$_SESSION["ok"],$_SESSION["err"]);
 ?></div></div><div class="l1 ce"><a href="http://edmondsql.github.io">edmondsql</a></div>
-<script src="<?=$js?>"></script>
 <script>
-var pwd=document.getElementById("pwd");
+function byId(n){
+return document.getElementById(n);
+}
+function byName(n){
+return document.getElementsByName(n);
+}
+function byAll(n){
+return document.querySelectorAll(n);
+}
+function createEl(n){
+return document.createElement(n);
+}
+Element.prototype.show=function(){
+this.style.display='block';
+};
+Element.prototype.hide=function(){
+this.style.display='none';
+};
+var pwd=byId("pwd");
 pwd?pwd.focus():'';
-$(function(){
-if($(".msg").text()!="") setTimeout(function(){$(".msg").remove();},7000);
-$(".del").on("click",function(e){
+
+let msg=byAll(".msg");
+byAll(".del").forEach(d=>{
+d.addEventListener('click',(e)=>{
 e.preventDefault();
-$(".msg").remove();
-var but=$(this),hrf=but.prop("href");
-$("body").append('<div class="msg"><div class="ok">Yes<\/div><div class="err">No<\/div><\/div>');
-$(".msg .ok").on("click",function(){window.location=hrf;});
-$(".msg .err").on("click",function(){$(".msg").remove();});
-$(document).on("keyup",function(e){
+msg.forEach(m=>m.remove());
+let hrf=e.target.getAttribute("href"),nMsg=createEl("div"),nOk=createEl("div"),nEr=createEl("div");
+nMsg.className='msg';
+nOk.className='ok';nOk.innerText='Yes';
+nEr.className='err';nEr.innerText='No';
+nMsg.appendChild(nOk);nMsg.lastChild.onclick=()=>window.location=hrf;
+nMsg.appendChild(nEr);nMsg.lastChild.onclick=()=>nMsg.remove();
+document.body.appendChild(nMsg);
+document.body.addEventListener('keyup',(e)=>{
 e.preventDefault();
-if($(".msg").is("div")){
-if(e.which==32||e.which==89) window.location=hrf;
-if(e.which==27||e.which==78) $(".msg").remove();
+let key=e.which||e.keyCode||e.key||0;
+if(key==32||key==89)window.location=hrf;
+if(key==27||key==78)nMsg.remove();
+});
+});
+});
+msg.forEach(m=>{if(m.innerText!="")setTimeout(()=>{m.remove()},7000);m.addEventListener('dblclick',()=>m.remove())});
+
+(function(){
+let draggedItem=null,tbody=document.querySelector('.sort');
+function handleDragStart(e){
+if(!e.target.classList.contains('handle')){
+e.preventDefault();
+return;
 }
-});
-});
-$(".msg").on("dblclick",function(){$(this).remove()});
-var base=$(".sort"),els=base.find("tr"),its=base.find(".handle"),drag=false,item;
-its.on('mousedown',function(e){
-base.css({"-webkit-touch-callout":"none","-webkit-user-select":"none","-moz-user-select":"none","user-select":"none"});
-if(e.which===1){item=$(this).closest("tr");els.addClass("opacity");item.addClass("drag");drag=true;}
-});
-its.on('mousemove',function(e){
-var hoverItem=$(this).closest("tr"),overTop=false,overBottom=false,hoverItemHeight=hoverItem.offsetHeight,yPos=e.offsetY;
-yPos<(hoverItemHeight/2)?overTop=true:overBottom=true;
-if(item && hoverItem.parent().get(0)===item.parent().get(0)){
-if(drag && overTop) hoverItem.before(item);
-if(drag && overBottom) hoverItem.after(item);
+draggedItem=e.target.closest('tr');
+setTimeout(()=>{draggedItem.classList.add('dragging');},0);
+e.dataTransfer.effectAllowed='move';
+e.dataTransfer.setData('text/plain','');
 }
-its.on('mouseup',function(){
-base.css({"-webkit-touch-callout":"auto","-webkit-user-select":"auto","-moz-user-select":"auto","user-select":"auto"});
-els.removeClass("opacity");
-item.removeClass("drag");
-var reord=[];
-base.find("tr").each(function(i,d){reord[i]=$(d).prop("id");});
-drag=false;
-var elx,ell=[];
-for(elx of els){ell.push($(elx).id);}
-if(ell !=reord){
+function handleDragOver(e){
+e.preventDefault();
+const targetRow = e.target.closest('tr');
+if(targetRow && targetRow !== draggedItem && !targetRow.classList.contains('dragging')){
+const rect=targetRow.getBoundingClientRect();
+const next=(e.clientY - rect.top)/(rect.bottom - rect.top) > 0.5;
+if(next){
+targetRow.parentNode.insertBefore(draggedItem, targetRow.nextSibling);
+}else{
+targetRow.parentNode.insertBefore(draggedItem, targetRow);
+}
+Array.from(targetRow.parentNode.children).forEach(child => child.classList.remove('drag-over'));
+targetRow.classList.add('drag-over');
+}
+}
+function handleDragEnd(e){
+if(draggedItem){
+draggedItem.classList.remove('dragging');
+Array.from(draggedItem.parentNode.children).forEach(child => child.classList.remove('drag-over'));
+}
+draggedItem = null;
+let rows=Array.from(tbody.children);
+let reord=rows.map(row => row.id);
 var xhr=new window.XMLHttpRequest();
 xhr.open("POST","<?=$ed->path.'9/'.(empty($ed->sg[1])?'':$ed->sg[1].'/').(empty($ed->sg[2])?'':$ed->sg[2])?>");
 xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
@@ -1902,38 +1935,49 @@ xhr.onload=function(){
 }
 xhr.send("reord="+reord);
 }
+function addDragAndDrop(){
+if(!tbody) return;
+tbody.addEventListener('dragstart',handleDragStart);
+tbody.addEventListener('dragover',handleDragOver);
+tbody.addEventListener('dragleave',(e)=>{
+const targetRow=e.target.closest('tr');
+if(targetRow)targetRow.classList.remove('drag-over');
 });
-});
-});
+tbody.addEventListener('drop',handleDragEnd);
+tbody.addEventListener('dragend',handleDragEnd);
+}
+addDragAndDrop();
+})();
+
 function selectall(cb,lb){
-var i,multi=document.getElementById(lb);
+var i,multi=byId(lb);
 if(cb.checked) for(i=0;i<multi.options.length;i++) multi.options[i].selected=true;
 else multi.selectedIndex=-1;
 }
 function toggle(cb,el){
-var i,cbox=document.getElementsByName(el);
+var i,cbox=byName(el);
 for(i=0;i<cbox.length;i++) cbox[i].checked=cb.checked;
 }
 function fmt(){
-var j,opt=document.getElementsByName("fopt[]"),ff=document.getElementsByName("ffmt[]"),to=opt.length,ch="",ft=document.getElementsByName("ftype")[0];
+var j,opt=byName("fopt[]"),ff=byName("ffmt[]"),to=opt.length,ch="";
 for(j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
-if(document.getElementById('tbs'))dbx('tbs');
+if(byId('tbs'))dbx('tbs');
 if(ch=="sql"){
-for(var k=0;k<to;k++) opt[k].parentElement.style.display="block";
+for(var k=0;k<to;k++) opt[k].parentElement.show();
 }else if(ch=="doc" || ch=="xml"){
 var k,n=ch=="xml"?4:2;
-for(k=0;k<n;k++) opt[k].parentElement.style.display="block";
-for(k=n;k<to;k++) {opt[k].parentElement.style.display="none";opt[k].checked=false}
+for(k=0;k<n;k++) opt[k].parentElement.show();
+for(k=n;k<to;k++) {opt[k].parentElement.hide();opt[k].checked=false}
 }else{
-for(var i=0;i<to;i++) {opt[i].parentElement.style.display="none";opt[i].checked=false}
+for(var i=0;i<to;i++) {opt[i].parentElement.hide();opt[i].checked=false}
 }
 }
 function dbx(el='dbs'){
-var j,ch="",ft=document.getElementsByName("ftype")[0],ff=document.getElementsByName("ffmt[]"),db=document.querySelectorAll("#"+el+" option:checked").length,dbs=document.getElementById('dbs'),arr=["json","csv1","csv2"];
+var j,ch="",ft=byName("ftype")[0],ff=byName("ffmt[]"),db=byAll("#"+el+" option:checked").length,dbs=byId('dbs'),arr=["json","csv1","csv2"];
 for(j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
 if(ft[0].value!="plain"){
 if((db<2 && (dbs||arr.indexOf(ch)>-1))||(db>1 && (dbs||arr.indexOf(ch)==-1))){
-var op=document.createElement("option");
+var op=createEl("option");
 op.value="plain";op.text="None";
 ft.options.add(op,0);
 ft.options[0].selected=true;
