@@ -5,7 +5,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.19";
+$version="3.20";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 class DBT {
@@ -100,6 +100,9 @@ class ED {
 		$fi=iconv("utf-16","utf-8",$fi);
 		}
 		return $fi;
+	}
+	function isBase64($data) {
+		return (bool) preg_match('/^[a-zA-Z0-9+\/]+={0,2}$/', $data) && (strlen($data) % 4 === 0);
 	}
 	public function form($furl,$enc='') {
 		return "<form action='".$this->path.$furl."' method='post'".($enc==1 ? " enctype='multipart/form-data'":"").">";
@@ -415,7 +418,7 @@ class ED {
 }
 $ed=new ED;
 $head='<!DOCTYPE html><html lang="en"><head>
-<title>EdLiteAdmin</title><meta charset="utf-8">
+<meta charset="utf-8"><title>EdLiteAdmin</title>
 <style>
 *{margin:0;padding:0;font-size:14px;color:#333;font-family:Arial}
 html{-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;background:#fff}
@@ -444,7 +447,7 @@ select{padding:1px 0}
 optgroup option{padding-left:8px}
 textarea{white-space:pre-wrap}
 .msg{position:absolute;top:0;right:0;z-index:9}
-.ok,.err{padding:8px;font-weight:bold;font-size:14px}
+.ok,.err{padding:8px;font-weight:bold}
 .ok{background:#efe;color:#080;border-bottom:2px solid #080}
 .err{background:#fee;color:#f00;border-bottom:2px solid #f00}
 .l1,th,button{background:#9be}
@@ -474,7 +477,7 @@ switch($ed->sg[0]) {
 default:
 case ""://show DBs
 	$ed->check();
-	echo $head.$ed->menu()."<div class='col1'>Create Database".$ed->form(2)."<input type='text' name='dbc' /><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>Database</th><th>Tables</th><th><a href='{$ed->path}31'>Exp</a>/ Actions</th></tr>";
+	echo $head.$ed->menu()."<div class='col1'>".$ed->form(2)."<input type='text' name='dbc' placeholder='Database' /><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>Database</th><th>Tables</th><th><a href='{$ed->path}31'>Exp</a>/ Actions</th></tr>";
 	foreach($ed->listdb() as $db) {
 		$bg=($bg==1)?2:1;
 		$dbx=new DBT($ed->dir.$db.$ed->ext);
@@ -1696,16 +1699,19 @@ case "33"://blob download
 	} else {
 	$ph=$ed->sg[7];$nu1=" AND ".$ed->sg[5]."='".base64_decode($ed->sg[6])."'";
 	}
-	$q_ph=$ed->con->query("SELECT $ph FROM $tb WHERE $nu='$id'$nu1",true)->fetch();
-	$r_ph=base64_decode($q_ph);
+	$r_ph=$ed->con->query("SELECT $ph FROM $tb WHERE $nu='$id'$nu1",true)->fetch();
+	if($ed->isBase64($r_ph)) $r_ph=base64_decode($r_ph);
 	$len=strlen($r_ph);
-	if($len >=2 && $r_ph[0]==chr(0xff) && $r_ph[1]==chr(0xd8)) {$tp='image/jpeg';$xt='.jpg';}
-	elseif($len >=3 && substr($r_ph,0,3)=='GIF') {$tp='image/gif';$xt='.gif';}
-	elseif($len >=4 && substr($r_ph,0,4)=="\x89PNG") {$tp='image/png';$xt='.png';}
-	else {$tp='application/octet-stream';$xt='.bin';$r_ph=$q_ph;}
+	$tp='application/octet-stream';$xt='bin';
+	if($len>3){
+	if(substr($r_ph,0,3)=="\xFF\xD8\xFF"){$tp='image/jpg';$xt='jpg';}
+	elseif(substr($r_ph,0,3)=="GIF"){$tp='image/gif';$xt='gif';}
+	elseif(substr($r_ph,0,4)=="\x89PNG"){$tp='image/png';$xt='png';}
+	elseif(substr($r_ph,0,4)=="RIFF"){$tp='image/webp';$xt='webp';}
+	}
 	header("Content-type: $tp");
 	header("Content-Length: $len");
-	header("Content-Disposition: attachment; filename={$tb}-blob{$xt}");
+	header("Content-Disposition: attachment; filename={$tb}-blob.{$xt}");
 	die($r_ph);
 break;
 
@@ -1849,33 +1855,21 @@ $ed->con=null;
 unset($_POST,$_SESSION["ok"],$_SESSION["err"]);
 ?></div></div><div class="l1 ce"><a href="http://edmondsql.github.io">edmondsql</a></div>
 <script>
-function byId(n){
-return document.getElementById(n);
-}
-function byName(n){
-return document.getElementsByName(n);
-}
-function byAll(n){
-return document.querySelectorAll(n);
-}
-function createEl(n){
-return document.createElement(n);
-}
-Element.prototype.show=function(){
-this.style.display='block';
-};
-Element.prototype.hide=function(){
-this.style.display='none';
-};
-var pwd=byId("pwd");
+const $=(s)=>document.querySelector(s);
+const $$=(s)=>document.querySelectorAll(s);
+const $n=(s)=>document.getElementsByName(s);
+const $c=(s)=>document.createElement(s);
+Element.prototype.show=function(){this.style.display='block';}
+Element.prototype.hide=function(){this.style.display='none';}
+const pwd=$("#pwd");
 pwd?pwd.focus():'';
 
-let msg=byAll(".msg");
-byAll(".del").forEach(d=>{
+let msg=$$(".msg");
+$$(".del").forEach(d=>{
 d.addEventListener('click',(e)=>{
 e.preventDefault();
 msg.forEach(m=>m.remove());
-let hrf=e.target.getAttribute("href"),nMsg=createEl("div"),nOk=createEl("div"),nEr=createEl("div");
+let hrf=e.target.getAttribute("href"),nMsg=$c("div"),nOk=$c("div"),nEr=$c("div");
 nMsg.className='msg';
 nOk.className='ok';nOk.innerText='Yes';
 nEr.className='err';nEr.innerText='No';
@@ -1950,34 +1944,34 @@ addDragAndDrop();
 })();
 
 function selectall(cb,lb){
-var i,multi=byId(lb);
+let i,multi=$('#'+lb);
 if(cb.checked) for(i=0;i<multi.options.length;i++) multi.options[i].selected=true;
 else multi.selectedIndex=-1;
 }
 function toggle(cb,el){
-var i,cbox=byName(el);
+let i,cbox=$n(el);
 for(i=0;i<cbox.length;i++) cbox[i].checked=cb.checked;
 }
 function fmt(){
-var j,opt=byName("fopt[]"),ff=byName("ffmt[]"),to=opt.length,ch="";
+let j,opt=$n("fopt[]"),ff=$n("ffmt[]"),to=opt.length,ch="";
 for(j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
-if(byId('tbs'))dbx('tbs');
+if($('#tbs'))dbx('tbs');
 if(ch=="sql"){
-for(var k=0;k<to;k++) opt[k].parentElement.show();
+for(let k=0;k<to;k++) opt[k].parentElement.show();
 }else if(ch=="doc" || ch=="xml"){
-var k,n=ch=="xml"?4:2;
+let k,n=ch=="xml"?4:2;
 for(k=0;k<n;k++) opt[k].parentElement.show();
 for(k=n;k<to;k++) {opt[k].parentElement.hide();opt[k].checked=false}
 }else{
-for(var i=0;i<to;i++) {opt[i].parentElement.hide();opt[i].checked=false}
+for(let i=0;i<to;i++) {opt[i].parentElement.hide();opt[i].checked=false}
 }
 }
 function dbx(el='dbs'){
-var j,ch="",ft=byName("ftype")[0],ff=byName("ffmt[]"),db=byAll("#"+el+" option:checked").length,dbs=byId('dbs'),arr=["json","csv1","csv2"];
+let j,ch="",ft=$n("ftype")[0],ff=$n("ffmt[]"),db=$$("#"+el+" option:checked").length,dbs=$('#dbs'),arr=["json","csv1","csv2"];
 for(j=0;ff[j];++j){if(ff[j].checked) ch=ff[j].value;}
 if(ft[0].value!="plain"){
 if((db<2 && (dbs||arr.indexOf(ch)>-1))||(db>1 && (dbs||arr.indexOf(ch)==-1))){
-var op=createEl("option");
+let op=$c("option");
 op.value="plain";op.text="None";
 ft.options.add(op,0);
 ft.options[0].selected=true;
