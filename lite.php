@@ -5,7 +5,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.21";
+$version="3.22";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 class DBT {
@@ -29,10 +29,10 @@ class DBT {
 	public function query($sql,$single=false){
 		try{
 		if($this->ltype==self::$litetype[0]){
-		if($single==false) $this->_query=$this->_cnx->query($sql);
-		else $this->_query=$this->_cnx->querySingle($sql);
+		if($single==false) $this->_query=@$this->_cnx->query($sql);
+		else $this->_query=@$this->_cnx->querySingle($sql);
 		} else {
-		$this->_query=$this->_cnx->query($sql);
+		$this->_query=@$this->_cnx->query($sql);
 		}
 		return $this;
 		}catch(Exception $e){
@@ -151,9 +151,9 @@ class ED {
 	public function listdb(){
 		$dbs=[];
 		$dh=@opendir($this->dir);
-		while(($dbe=readdir($dh)) !=false){
-		$dbext=pathinfo($dbe);
-		if(@is_file($this->dir.$dbe) && !empty($dbext['extension']) && ".".$dbext['extension']==$this->ext) $dbs[]=$dbext['filename'];
+		while(($dbf=readdir($dh)) != false){
+		$dbi=pathinfo($dbf);
+		if(@is_file($this->dir.$dbf) && !empty($dbi['extension']) && ".".$dbi['extension']==$this->ext && (filesize($dbf)==0 || file_get_contents($dbf,false,null,0,16)=="SQLite format 3\x00")) $dbs[]=$dbi['filename'];
 		}
 		closedir($dh);
 		sort($dbs);
