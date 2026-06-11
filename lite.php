@@ -5,7 +5,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.22";
+$version="3.23";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 class DBT {
@@ -161,7 +161,7 @@ class ED {
 	}
 	public function check($level=[],$param=[]){
 		if(!empty($_SESSION['ltoken'])){
-		if($_SESSION['ltoken'] !=base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$this->passwd))) $this->redir("50",['err'=>"Wrong password"]);
+		if(!password_verify($this->passwd,$_SESSION['ltoken'])) $this->redir("50",['err'=>"Wrong password"]);
 		$h='HTTP_X_REQUESTED_WITH';
 		if(isset($_SERVER[$h]) && !empty($_SERVER[$h]) && strtolower($_SERVER[$h]) == 'xmlhttprequest') session_regenerate_id(true);
 		} else {
@@ -1822,7 +1822,7 @@ break;
 
 case "50"://login
 	if($ed->post('password','i')){
-	$_SESSION['ltoken']=base64_encode(md5($_SERVER['HTTP_USER_AGENT'].$ed->post('password')));
+	$_SESSION['ltoken']=password_hash($ed->post('password'),PASSWORD_DEFAULT);
 	$ed->redir();
 	}
 	session_unset();
