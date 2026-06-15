@@ -1822,7 +1822,7 @@ break;
 
 case "50"://login
 	if($ed->post('password','i')){
-	$_SESSION['ltoken']=password_hash($ed->post('password'),PASSWORD_DEFAULT);
+	$_SESSION['ltoken']=password_hash($ed->post('password'),PASSWORD_BCRYPT,['cost'=>8]);
 	$ed->redir();
 	}
 	session_unset();
