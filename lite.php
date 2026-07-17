@@ -5,7 +5,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.23";
+$version="3.24";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 class DBT {
@@ -212,9 +212,9 @@ class ED {
 		if($tb!="") $str.=$dv."<li><a href='{$this->path}10/$db/$tb'>Structure</a></li><li><a href='{$this->path}20/$db/$tb'>Browse</a></li><li><a href='{$this->path}21/$db/$tb'>Insert</a></li><li><a href='{$this->path}24/$db/$tb'>Search</a></li><li><a class='del' href='{$this->path}25/$db/$tb'>Empty</a></li><li><a class='del' href='{$this->path}26/$db/$tb'>Drop</a></li>";//table
 		if(!empty($sp[1]) && $sp[0]=='view'){
 		$nr=@$this->con->query("SELECT COUNT(*) FROM ".$sp[1],true)->fetch();
-		$str.=$dv."<li><a href='{$this->path}40/$db/".$sp[1]."/view'>Structure</a></li>".
-		($nr!=false ? "<li><a href='{$this->path}20/$db/".$sp[1]."'>Browse</a></li>":"").
-		"<li><a class='del' href='{$this->path}49/$db/".$sp[1]."/view'>Drop</a></li>";//view
+		$str.=$dv."<li><a href='{$this->path}40/$db/{$sp[1]}/view'>Structure</a></li>".
+		($nr!=false ? "<li><a href='{$this->path}20/$db/{$sp[1]}'>Browse</a></li>":"").
+		"<li><a class='del' href='{$this->path}49/$db/{$sp[1]}/view'>Drop</a></li>";//view
 		}
 		if($db!='') $str.="</ul></div>";
 
@@ -259,10 +259,10 @@ class ED {
 		}
 		if($left==1) $str.="<div class='col1'>".
 		$this->form("30/$db")."<textarea name='qtxt'></textarea><br/><button type='submit'>Run sql</button></form>
-		<h3>Import</h3><small>sql, csv, json, xml, sqlite, gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile' />
-		<input type='hidden' name='send' value='ff' /><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
-		<h3>Create Table</h3>".$this->form("6/$db")."<input type='text' name='ctab' /><br/>Number of fields<br/><select name='nrf'>$nrf_op</select><br/><button type='submit'>Create</button></form>
-		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb' /><br/><button type='submit'>Rename</button></form>
+		<h3>Import</h3><small>sql, csv, json, xml, sqlite, gz, zip</small>".$this->form("30/$db",1)."<input type='file' name='importfile'/>
+		<input type='hidden' name='send' value='ff'/><br/><button type='submit'>Upload (&lt;".ini_get("upload_max_filesize")."B)</button></form>
+		<h3>Create Table</h3>".$this->form("6/$db")."<input type='text' name='ctab'/><br/>Number of fields<br/><select name='nrf'>$nrf_op</select><br/><button type='submit'>Create</button></form>
+		<h3>Rename DB</h3>".$this->form("3/$db")."<input type='text' name='rdb'/><br/><button type='submit'>Rename</button></form>
 		<h3>Create</h3><a href='{$this->path}40/$db'>View</a><a href='{$this->path}41/$db'>Trigger</a></div><div class='col2'>";
 		return $str;
 	}
@@ -277,7 +277,7 @@ class ED {
 		}
 		$lft=($pg>1?"<a href='$lnk/1'>First</a><a href='$lnk/".($pg-1)."'>Prev</a>":"");
 		$rgt=($pg < $totalpg?"<a href='$lnk/".($pg+1)."'>Next</a><a href='$lnk/$totalpg'>Last</a>":"");
-		return "<div class='pg'>".$lft."<select onchange='location=this.value;'>$pgs</select>".$rgt."</div>";
+		return "<div class='pg'>$lft<select onchange='location=this.value;'>$pgs</select>$rgt</div>";
 		}
 	}
 	public function imp_csv($fname,$body){
@@ -429,7 +429,8 @@ small{font-size:90%}
 .m1{position:absolute;right:0;top:0}
 .mn li:hover ul{display:block;position:absolute}
 .ce{text-align:center}
-.link{float:right;padding:3px 0}
+.right{float:right}
+.link{padding:3px 0}
 .pg *{margin:0 2px;width:auto}
 caption{font-weight:bold;border:2px solid #9be}
 .l1 ul,.l2 ul{list-style:none}
@@ -478,7 +479,7 @@ switch($ed->sg[0]){
 default:
 case ""://show DBs
 	$ed->check();
-	echo $head.$ed->menu()."<div class='col1'>".$ed->form(2)."<input type='text' name='dbc' placeholder='Database' /><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>Database</th><th>Tables</th><th><a href='{$ed->path}31'>Exp</a>/ Actions</th></tr>";
+	echo $head.$ed->menu()."<div class='col1'>".$ed->form(2)."<input type='text' name='dbc' placeholder='Database'/><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>Database</th><th>Tables</th><th><a href='{$ed->path}31'>Exp</a>/ Actions</th></tr>";
 	foreach($ed->listdb() as $db){
 		$bg=($bg==1)?2:1;
 		$dbx=new DBT($ed->dir.$db.$ed->ext);
@@ -544,11 +545,11 @@ case "5"://show tables
 		$bg=($bg==1)?2:1;
 		$vl="/$db/".$r_tabs[0];
 		if($r_tabs[1]=="view"){
-		$lnk="40{$vl}/view"; $vdel="49{$vl}/view";
+		$lk="40{$vl}/view"; $vdel="49{$vl}/view";
 		} else {
-		$lnk="10{$vl}"; $vdel="26{$vl}";
+		$lk="10{$vl}"; $vdel="26{$vl}";
 		}
-		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>$q_num</td><td><a href='{$ed->path}{$lnk}'>Structure</a><a class='del' href='{$ed->path}{$vdel}'>Drop</a>".(is_numeric($nr) || ($nr!=false && $q_num=="view") ? "<a href='{$ed->path}20/$db/".$r_tabs[0]."'>Browse</a>":"")."</td></tr>";
+		echo "<tr class='r c$bg'><td>".$r_tabs[0]."</td><td>$q_num</td><td><a href='{$ed->path}{$lk}'>Structure</a><a class='del' href='{$ed->path}{$vdel}'>Drop</a>".(is_numeric($nr) || ($nr!=false && $q_num=="view") ? "<a href='{$ed->path}20/$db/{$r_tabs[0]}'>Browse</a>":"")."</td></tr>";
 		}
 	}
 	echo "</table>";
@@ -557,7 +558,7 @@ case "5"://show tables
 	$trg_tab="<table><tr><th>Trigger</th><th>Table</th><th>Actions</th></tr>";
 	foreach($q_tri as $r_tri){
 	$bg=($bg==1)?2:1;
-	$trg_tab.="<tr class='r c$bg'><td>".$r_tri[0]."</td><td>".$r_tri[1]."</td><td><a href='{$ed->path}41/$db/".$r_tri[0]."/trigger'>Edit</a><a class='del' href='{$ed->path}49/$db/".$r_tri[0]."/trigger'>Drop</a></td></tr>";
+	$trg_tab.="<tr class='r c$bg'><td>{$r_tri[0]}</td><td>{$r_tri[1]}</td><td><a href='{$ed->path}41/$db/{$r_tri[0]}/trigger'>Edit</a><a class='del' href='{$ed->path}49/$db/{$r_tri[0]}/trigger'>Drop</a></td></tr>";
 	++$t;
 	}
 	echo ($t>0 ? $trg_tab."</table>":"").$ed->pg_number($pg,$totalpg);
@@ -577,7 +578,7 @@ case "6"://create table
 			$v1=$ed->sanitize($ed->post('fi'.$n));
 			if(!empty($v1) && !is_numeric(substr($v1,0,1))){
 			$v2=$ed->post('ty'.$n); $v3=$ed->post('vl'.$n); $v4=$ed->post('nl'.$n); $v5=$ed->post('df'.$n);
-			$q1.=$v1." ".$v2.($v3!='' ? "(".$v3.")":"").($v4==1 ? " NOT NULL":"").($v5!="" ? " DEFAULT '".$v5."'":"").",";
+			$q1.=$v1." ".$v2.($v3!='' ? "({$v3})":"").($v4==1 ? " NOT NULL":"").($v5!="" ? " DEFAULT '$v5'":"").",";
 			}
 			++$n;
 		}
@@ -589,7 +590,7 @@ case "6"://create table
 		$nr=$ed->post('nrf');
 		$i=0;
 		while($i<$nr){
-		echo "<tr><td><input type=text name='fi$i' /></td><td><select name='ty$i'>".$ed->fieldtype()."</select></td><td><input type=text name='vl$i' /></td><td><select name='nl$i'><option value='0'>Yes</option><option value='1'>No</option></select></td><td><input type=text name='df$i' /></td></tr>";
+		echo "<tr><td><input type=text name='fi$i'/></td><td><select name='ty$i'>".$ed->fieldtype()."</select></td><td><input type=text name='vl$i'/></td><td><select name='nl$i'><option value='0'>Yes</option><option value='1'>No</option></select></td><td><input type=text name='df$i'/></td></tr>";
 		++$i;
 		}
 		echo "<tr><td colspan='5'><button type='submit' name='crtb'>Create table</button></td></tr></table></form>";
@@ -701,13 +702,13 @@ case "10"://structure
 	$ed->check([1,2]);
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
-	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>Structure</caption><thead><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")' /></th><th>Field</th><th>Type</th><th>Null</th><th>Default</th><th>PK</th><th>Actions</th></tr></thead><tbody class='sort'>";
+	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>Structure</caption><thead><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")'/></th><th>Field</th><th>Type</th><th>Null</th><th>Default</th><th>PK</th><th>Actions</th></tr></thead><tbody class='sort'>";
 	$q_rec=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec){
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg' id='".$rec[1]."'><td><input type='checkbox' name='idx[]' value='".$rec[1]."' /></td><td>".$rec[1]."</td><td>".$rec[2]."</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>".$rec[4]."</td><td>".($rec[5]>0 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/".$rec[1]."'>change</a><a class='del' href='{$ed->path}13/$db/$tb/".$rec[1]."'>drop</a><a href='{$ed->path}11/$db/$tb/'>add</a><span draggable='true' class='handle' title='move'>&#x21F5;</span></td></tr>";
+		echo "<tr class='r c$bg' id='{$rec[1]}'><td><input type='checkbox' name='idx[]' value='{$rec[1]}'/></td><td>{$rec[1]}</td><td>{$rec[2]}</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>{$rec[4]}</td><td>".($rec[5]>0 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/{$rec[1]}'>change</a><a class='del' href='{$ed->path}13/$db/$tb/{$rec[1]}'>drop</a><a href='{$ed->path}11/$db/$tb'>add</a><span draggable='true' class='handle' title='move'>&#x21F5;</span></td></tr>";
 	}
-	echo "</tbody><tfoot><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a></div></td></tr></tfoot></table></form>";
+	echo "</tbody><tfoot><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='right link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a></div></td></tr></tfoot></table></form>";
 	$q_idx=$ed->con->query("PRAGMA index_list($tb)")->fetch(1);
 	echo "<table><caption>Index</caption><tr><th>Name</th><th>Field</th><th>Unique</th><th>Actions</th></tr>";
 	foreach($q_idx as $rc){
@@ -721,15 +722,15 @@ case "10"://structure
 	preg_match_all('/\bCHECK\s*\((.+)\)/i',$q_chk,$match);
 	foreach($match[1] as $r_ch){
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg'><td>CHECK</td><td colspan='3'>".$r_ch."</td></tr>";
+		echo "<tr class='r c$bg'><td>CHECK</td><td colspan='3'>$r_ch</td></tr>";
 	}
 	$q_fkl=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
 	echo "</table><table><caption>Foreign Keys</caption><tr><th>Field</th><th>Target</th><th>On delete</th><th>On update</th><th>Actions <a href='{$ed->path}14/$db/$tb'>add</a></th></tr>";
 	foreach($q_fkl as $r_fkl){
 		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg'><td>".$r_fkl['from']."</td><td>".$r_fkl['table'].".".$r_fkl['to']."</td><td>".$r_fkl['on_delete']."</td><td>".$r_fkl['on_update']."</td><td><a href='{$ed->path}14/$db/$tb/{$r_fkl['id']}'>change</a><a class='del' href='{$ed->path}14/$db/$tb/{$r_fkl['id']}/fk'>drop</a></td></tr>";
+		echo "<tr class='r c$bg'><td>{$r_fkl['from']}</td><td>{$r_fkl['table']}.{$r_fkl['to']}</td><td>{$r_fkl['on_delete']}</td><td>{$r_fkl['on_update']}</td><td><a href='{$ed->path}14/$db/$tb/{$r_fkl['id']}'>change</a><a class='del' href='{$ed->path}14/$db/$tb/{$r_fkl['id']}/fk'>drop</a></td></tr>";
 	}
-	echo "</table><table class='c1'><tr><td>Rename Table<br/>".$ed->form("9/$db/$tb")."<input type='text' name='rtab' /><br/><button type='submit'>Rename</button></form><br/>Copy Table<br/>".$ed->form("9/$db/$tb")."<select name='copytab'>";
+	echo "</table><table class='c1'><tr><td>Rename Table<br/>".$ed->form("9/$db/$tb")."<input type='text' name='rtab'/><br/><button type='submit'>Rename</button></form><br/>Copy Table<br/>".$ed->form("9/$db/$tb")."<select name='copytab'>";
 	foreach($ed->listdb() as $dbl) echo "<option value='$dbl'>$dbl</option>";
 	echo "</select><br/><button type='submit'>Copy</button></form></td></tr></table>";
 break;
@@ -746,7 +747,7 @@ case "11"://add field
 		if($e) $ed->redir("10/$db/$tb",['ok'=>"Successfully added"]);
 		else $ed->redir("10/$db/$tb",['err'=>"Can't add this field"]);
 	} else {
-		echo $head.$ed->menu($db,$tb,2).$ed->form("11/$db/$tb").$stru."<tr><td><input type='text' name='f1' /></td><td><select name='f2'>".$ed->fieldtype()."</select></td><td><input type='text' name='f3' /></td><td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td><td><input type='text' name='f5' /></td></tr><tr><td colspan='5'><button type='submit' name='add'>Add field</button></td></tr></table></form>";
+		echo $head.$ed->menu($db,$tb,2).$ed->form("11/$db/$tb").$stru."<tr><td><input type='text' name='f1'/></td><td><select name='f2'>".$ed->fieldtype()."</select></td><td><input type='text' name='f3'/></td><td><select name='f4'><option value='0'>Yes</option><option value='1'>No</option></select></td><td><input type='text' name='f5'/></td></tr><tr><td colspan='5'><button type='submit' name='add'>Add field</button></td></tr></table></form>";
 	}
 break;
 
@@ -803,7 +804,7 @@ case "12"://change field
 		foreach($q_t as $d){
 		if($d[1]==$fn1){
 		$d_val=preg_split("/[()]+/",$d[2],-1,PREG_SPLIT_NO_EMPTY);
-		echo "<tr><td><input type='text' name='cf1' value='".$d[1]."' /></td><td><select name='cf2'>".$ed->fieldtype(strtoupper($d_val[0]))."</select></td><td><input type='text' name='cf3' value='".(isset($d_val[1])?$d_val[1]:"")."' /></td><td><select name='cf4'><option value='0'>Yes</option><option value='1'".($d[3]!=0 ? " selected":"").">No</option></select></td><td><input type='text' name='cf5' value='".($d[4]==''?'':str_replace("'","",$d[4]))."' /></td></tr>";
+		echo "<tr><td><input type='text' name='cf1' value='{$d[1]}'/></td><td><select name='cf2'>".$ed->fieldtype(strtoupper($d_val[0]))."</select></td><td><input type='text' name='cf3' value='".(isset($d_val[1])?$d_val[1]:"")."'/></td><td><select name='cf4'><option value='0'>Yes</option><option value='1'".($d[3]!=0 ? " selected":"").">No</option></select></td><td><input type='text' name='cf5' value='".($d[4]==''?'':str_replace("'","",$d[4]))."'/></td></tr>";
 		}
 		}
 		echo "<tr><td colspan='5'><button type='submit' name='change'>Change field</button></td></tr></table></form>";
@@ -831,7 +832,7 @@ case "13"://drop field
 	}
 	$q_fk=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
 	foreach($q_fk as $r_fk){
-	if($r_fk['from']!=$fn) $fk.="FOREIGN KEY (".$r_fk['from'].") REFERENCES ".$r_fk['table']." (".$r_fk['to'].")".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
+	if($r_fk['from']!=$fn) $fk.="FOREIGN KEY ({$r_fk['from']}) REFERENCES {$r_fk['table']} ({$r_fk['to']})".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
 	}
 	$qr.=(empty($pk) ? "":" PRIMARY KEY(".substr($pk,0,-1)."),").$fk;
 	$q_r=["BEGIN TRANSACTION"];
@@ -892,7 +893,7 @@ case "14"://fk
 	if(isset($ed->sg[3]) && $ed->sg[3]>=0){
 	foreach($q_fk as $r_fk){
 	if($r_fk['id']==$ed->sg[3]){
-	echo "<tr><td><input type='text' name='from' value='{$r_fk['from']}' /></td><td><input type='text' name='table' value='{$r_fk['table']}' /></td><td><input type='text' name='to' value='{$r_fk['to']}' /></td><td><select name='drule'>";
+	echo "<tr><td><input type='text' name='from' value='{$r_fk['from']}'/></td><td><input type='text' name='table' value='{$r_fk['table']}'/></td><td><input type='text' name='to' value='{$r_fk['to']}'/></td><td><select name='drule'>";
 	foreach($fkty as $fkt) echo "<option value='$fkt'".($r_fk['on_delete']==$fkt?" selected":"").">$fkt</option>";
 	echo "</select></td><td><select name='urule'>";
 	foreach($fkty as $fkt) echo "<option value='$fkt'".($r_fk['on_update']==$fkt?" selected":"").">$fkt</option>";
@@ -900,7 +901,7 @@ case "14"://fk
 	}
 	}
 	} else {
-	echo "<tr><td><input type='text' name='from' /></td><td><input type='text' name='table' /></td><td><input type='text' name='to' /></td><td><select name='drule'>";
+	echo "<tr><td><input type='text' name='from'/></td><td><input type='text' name='table'/></td><td><input type='text' name='to'/></td><td><select name='drule'>";
 	foreach($fkty as $fkt) echo "<option value='$fkt'>$fkt</option>";
 	echo "</select></td><td><select name='urule'>";
 	foreach($fkty as $fkt) echo "<option value='$fkt'>$fkt</option>";
@@ -935,8 +936,8 @@ case "20"://table browse
 	foreach($q_ti as $r_ti){
 		if($r_col && array_key_exists($r_ti[1],$r_col[0])){
 		$rinf[$r_ti[1]]=$r_ti[2];
-		echo "<th>".$r_ti[1]."</th>";
-		} elseif(empty($r_col)) echo "<th>".$r_ti[1]."</th>";
+		echo "<th>{$r_ti[1]}</th>";
+		} elseif(empty($r_col)) echo "<th>{$r_ti[1]}</th>";
 	}
 	echo "</tr>";
 	if($r_col){
@@ -953,9 +954,9 @@ case "20"://table browse
 		$val=($row[$key[$j]]==''?'':htmlentities($row[$key[$j]]));
 		echo "<td>";
 		if(stristr($rinf[$key[$j]],"blob")==true ){
-		$le=strlen($row[$key[$j]]);
-		echo "[blob] ";
-		echo ($le>4)?"<a href='".$ed->path."33/$db/$tb/$nu/".$key[$j]."'>".number_format(($le/1024),2)." KB</a>":number_format(($le/1024),2)." KB";
+		$s=$row[$key[$j]]?$row[$key[$j]]:'';
+		$le=strlen($s);
+		echo "blob: ".($le>4 ? "<a href='{$ed->path}33/$db/$tb/$nu/{$key[$j]}'>".number_format(($le/1024),2)." KB</a>":"0.00 KB");
 		} elseif(strlen($val) > 70){
 		echo substr($val,0,70)."[...]";
 		} else echo $val;
@@ -1011,13 +1012,13 @@ case "21"://insert row
 		foreach($q_pra as $r_pra){
 			echo "<tr><td>".$r_pra['name']."</td><td>";
 			if(strtolower($r_pra['type'])=="boolean"){
-			foreach($bbs as $kj=>$bb) echo "<input type='radio' name='r".$r_pra['cid']."[]' value='$kj' /> $bb ";
+			foreach($bbs as $kj=>$bb) echo "<input type='radio' name='r{$r_pra['cid']}[]' value='$kj'/> $bb ";
 			} elseif(strtolower($r_pra['type'])=="blob"){
-			echo "<input type='file' name='r".$r_pra['cid']."' />";
+			echo "<input type='file' name='r{$r_pra['cid']}'/>";
 			} elseif(strtolower($r_pra['type'])=="text"){
-			echo "<textarea name='r".$r_pra['cid']."'></textarea>";
+			echo "<textarea name='r{$r_pra['cid']}'></textarea>";
 			} else {
-			echo "<input type='text' name='r".$r_pra['cid']."' />";
+			echo "<input type='text' name='r{$r_pra['cid']}'/>";
 			}
 			echo "</td></tr>";
 		}
@@ -1034,14 +1035,16 @@ case "22"://edit row
 	$id=($ed->sg[4]=="isnull"?"":base64_decode($ed->sg[4]));
 	$nu1=(empty($ed->sg[5])?"":$ed->sg[5]); $id1=(empty($ed->sg[6])?"":base64_decode($ed->sg[6]));
 	$q_rd=$ed->con->query("PRAGMA table_info($tb)")->fetch(2);
-	$nul=("(".$nu." IS NULL OR ".$nu."='')");
+	$nul=("($nu IS NULL OR $nu ='')");
 	if($ed->post('edit','i')){
 		$qr="";
 		foreach($q_rd as $r_rd){
 			$stype=strtolower($r_rd['type']);
 			$f_rd=$r_rd['name'];
 			if($stype=="blob"){
-				if(!empty($_FILES['d'.$f_rd]['tmp_name'])){
+				if($ed->post('r'.$f_rd,'i')){
+				$qr.=$f_rd."='',";
+				}elseif(!empty($_FILES['d'.$f_rd]['tmp_name'])){
 				$qr.=$f_rd."='".base64_encode(file_get_contents($_FILES['d'.$f_rd]['tmp_name']))."',";
 				}
 			} elseif($stype=="boolean"){
@@ -1064,17 +1067,18 @@ case "22"://edit row
 			$typ=strtolower($r_ed['type']);
 			echo "<tr><td>".$r_ed['name']."</td><td>";
 			if($typ=="boolean"){
-			foreach($bbs as $kk=>$bb) echo "<input type='radio' name='d".$nr."[]' value='$kk'".($arr[0][$nr]==$kk ? " checked":"")." /> $bb ";
+			foreach($bbs as $kk=>$bb) echo "<input type='radio' name='d{$nr}[]' value='$kk'".($arr[0][$nr]==$kk ? " checked":"")."/> $bb ";
 			} elseif($typ=="blob"){
-			echo "[blob] ".number_format((strlen($arr[0][$nr])/1024),2)." KB<br/><input type='file' name='d".$nr."' />";
+			$s=$arr[0][$nr]?$arr[0][$nr]:'';
+			echo number_format((strlen($s)/1024),2)." KB<i class='right'><input type='checkbox' name='r{$nr}'/> reset</i><br/><input type='file' name='d{$nr}'/>";
 			} elseif($typ=="text"){
-			echo "<textarea name='d".$nr."'>".($arr[0][$nr]==''?'':htmlentities($arr[0][$nr]))."</textarea>";
+			echo "<textarea name='d{$nr}'>".($arr[0][$nr]==''?'':htmlentities($arr[0][$nr]))."</textarea>";
 			} else {
-			echo "<input type='text' name='d".$nr."' value='".($arr[0][$nr]==''?'':htmlentities($arr[0][$nr]))."' />";
+			echo "<input type='text' name='d{$nr}' value='".($arr[0][$nr]==''?'':htmlentities($arr[0][$nr]))."'/>";
 			}
 			echo "</td></tr>";
 		}
-		echo "<tr><td><a class='del link' href='".$ed->path."23/$db/$tb/$nu/".($id==""?"isnull":base64_encode($id)).(!empty($nu1) && !empty($id1)?"/$nu1/".base64_encode($id1):"")."'>Delete</a></td><td><button type='submit' name='edit'>Update</button></td></tr></table></form>";
+		echo "<tr><td><a class='del right link' href='{$ed->path}23/$db/$tb/$nu/".($id==""?"isnull":base64_encode($id)).(!empty($nu1) && !empty($id1)?"/$nu1/".base64_encode($id1):"")."'>Delete</a></td><td><button type='submit' name='edit'>Update</button></td></tr></table></form>";
 	}
 break;
 
@@ -1084,7 +1088,7 @@ case "23"://delete row
 	$tb=$ed->sg[2];
 	$nul=("(".$ed->sg[3]." IS NULL OR ".$ed->sg[3]."='')");
 	$ed->con->exec("PRAGMA foreign_keys=ON");
-	$exec_dr=$ed->con->query("DELETE FROM ".$tb." WHERE ".($ed->sg[4]=="isnull"?$nul:$ed->sg[3]."='".base64_decode($ed->sg[4])."'").(!empty($ed->sg[5]) && !empty($ed->sg[6])?" AND ".$ed->sg[5]."='".base64_decode($ed->sg[6])."'":""));
+	$exec_dr=$ed->con->query("DELETE FROM $tb WHERE ".($ed->sg[4]=="isnull"?$nul:$ed->sg[3]."='".base64_decode($ed->sg[4])."'").(!empty($ed->sg[5]) && !empty($ed->sg[6])?" AND ".$ed->sg[5]."='".base64_decode($ed->sg[6])."'":""));
 	$ed->con->exec("PRAGMA foreign_keys=OFF");
 	if($exec_dr->last()) $ed->redir("20/$db/$tb",['ok'=>"Deleted row"]);
 	else $ed->redir("20/$db/$tb",['err'=>"Delete row failed"]);
@@ -1094,7 +1098,7 @@ case "24"://search
 	$ed->check([1,2]);
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
-	unset($_SESSION['_litesearch_'.$db.'_'.$tb]);
+	unset($_SESSION["_litesearch_{$db}_{$tb}"]);
 	if(!empty($ed->sg[3]) && $ed->sg[3]=='reset') $ed->redir("20/$db/$tb",['ok'=>"Reset search"]);
 	$q_se=$ed->con->query("PRAGMA table_info($tb)")->fetch(2);
 	$cond1=['=','&lt;','&gt;','&lt;=','&gt;=','!=','LIKE','NOT LIKE','REGEXP','NOT REGEXP'];
@@ -1112,7 +1116,7 @@ case "24"://search
 		if(in_array($cd,$cond2)){
 		$sl=preg_split("/[,]+/",$po);
 		$sl2=(!empty($sl[1])?$sl[1]:$sl[0]);
-		$search_cond[]=$fd." ".$cd." '".$sl[0]."' AND '".$sl2."'";
+		$search_cond[]=$fd." {$cd} '{$sl[0]}' AND '{$sl2}'";
 		}
 		elseif(in_array($cd,$cond3)) $search_cond[]=$fd." ".$cd." ('".$po."')";
 		elseif(in_array($cd,$cond4)) $search_cond[]=$fd." ".$cd;
@@ -1120,12 +1124,12 @@ case "24"://search
 		}
 	}
 	$se_str=($search_cond?"WHERE ":"").implode(" AND ",$search_cond).($ed->post('order_field','!e')?" ORDER BY ".$ed->post('order_field')." ".$ed->post('order_ord')." ":"");
-	$_SESSION['_litesearch_'.$db.'_'.$tb]=$se_str;
+	$_SESSION["_litesearch_{$db}_{$tb}"]=$se_str;
 	$ed->redir("20/$db/$tb");
 	}
 	echo $head.$ed->menu($db,$tb,1).$ed->form("24/$db/$tb")."<table><caption>Search</caption>";
 	$conds="";
-	foreach($cond as $cnd) $conds.="<option value='".$cnd."'>".$cnd."</option>";
+	foreach($cond as $cnd) $conds.="<option value='$cnd'>$cnd</option>";
 	$fields="<option value=''>&nbsp;</option>";
 	foreach($q_se as $r_se){
 	$fl=$r_se['name'];
@@ -1139,7 +1143,7 @@ case "25"://table empty
 	$ed->check([1,2]);
 	$db=$ed->sg[1];
 	$tb=$ed->sg[2];
-	$ed->con->exec("DELETE FROM ".$tb);
+	$ed->con->exec("DELETE FROM $tb");
 	$ed->redir("20/$db/$tb",['ok'=>"Table is empty"]);
 break;
 
@@ -1360,21 +1364,19 @@ case "31"://export form
 	++$ex;
 	}
 	}
-	if($ex < 1){
-	$ed->redir("5/$db",["err"=>"No export empty DB"]);
-	}
+	if($ex < 1) $ed->redir("5/$db",["err"=>"No export empty DB"]);
 	echo $ed->menu($db,'',2).$ed->form("32/$db").$div."<h3>Select table(s)</h3>
-	<p><input type='checkbox' onchange='selectall(this,\"tbs\");dbx(\"tbs\")' /> All/None</p>
+	<p><input type='checkbox' onchange='selectall(this,\"tbs\");dbx(\"tbs\")'/> All/None</p>
 	<select id='tbs' name='tbs[]' multiple='multiple' onchange='dbx(\"tbs\")'>";
 	foreach($r_tts as $tts) echo "<option value='$tts'>$tts</option>";
 	}
-	echo "</select><h3><input type='checkbox' onchange='toggle(this,\"fopt[]\");fmt()' /> Options</h3>";
+	echo "</select><h3><input type='checkbox' onchange='toggle(this,\"fopt[]\");fmt()'/> Options</h3>";
 	$opts=['structure'=>'Structure','data'=>'Data','drop'=>'Drop if exist','ifnot'=>'If not exist','trigger'=>'Triggers'];
-	foreach($opts as $k=> $opt) echo "<p><input type='checkbox' name='fopt[]' value='$k' /> $opt</p>";
+	foreach($opts as $k=> $opt) echo "<p><input type='checkbox' name='fopt[]' value='$k'/> $opt</p>";
 	echo "<h3>File format</h3>";
 	$ffo=['sql'=>'SQL','sqlite'=>'SQLite','xls'=>'Spreadsheet','xml'=>'XML','doc'=>'Word'];
 	if(!empty($ed->sg[1])) $ffo=array_merge($ffo,['json'=>'JSON','csv1'=>'CSV,','csv2'=>'CSV;']);
-	foreach($ffo as $k=> $ff) echo "<p><input type='radio' name='ffmt[]' onchange='fmt()' value='$k'".($k=='sql' ? ' checked':'')." /> $ff</p>";
+	foreach($ffo as $k=> $ff) echo "<p><input type='radio' name='ffmt[]' onchange='fmt()' value='$k'".($k=='sql' ? ' checked':'')."/> $ff</p>";
 	echo "<h3>File compression</h3><p><select name='ftype'>";
 	$fty=['plain'=>'None','zip'=>'Zip','gz'=>'GZ'];
 	foreach($fty as $k=> $ft) echo "<option value='$k'>$ft</option>";
@@ -1761,7 +1763,7 @@ case "40"://view
 		echo $head.$ed->menu($db,'',2,[$ty,$sp]).$ed->form("40/$db/$sp/$ty");
 		$b_lbl="Edit";
 	}
-	echo "<table><tr><th colspan='2'>$b_lbl View</th></tr><tr><td>Name</td><td><input type='text' name='uv1' value='".$r_uv[1]."'/></td></tr><tr><td>Statement</td><td><textarea name='uv2'>".$r_uv[2]."</textarea></td></tr><tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
+	echo "<table><tr><th colspan='2'>$b_lbl View</th></tr><tr><td>Name</td><td><input type='text' name='uv1' value='{$r_uv[1]}'/></td></tr><tr><td>Statement</td><td><textarea name='uv2'>{$r_uv[2]}</textarea></td></tr><tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
 break;
 
 case "41"://trigger
@@ -1799,7 +1801,7 @@ case "41"://trigger
 		echo $head.$ed->menu($db,'',2,[$ty,$sp]).$ed->form("41/$db/$sp/$ty");
 		$t_lbl="Edit";
 	}
-	echo "<table><tr><th colspan='2'>$t_lbl Trigger</th></tr><tr><td>Trigger Name</td><td><input type='text' name='utg1' value='".$r_tge[1]."'/></td></tr><tr><td>Table</td><td><select name='utg4'>";
+	echo "<table><tr><th colspan='2'>$t_lbl Trigger</th></tr><tr><td>Trigger Name</td><td><input type='text' name='utg1' value='{$r_tge[1]}'/></td></tr><tr><td>Table</td><td><select name='utg4'>";
 	$q_tbs=$ed->con->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")->fetch(1);
 	foreach($q_tbs as $tgt){
 	$tg=$tgt[0];
@@ -1811,7 +1813,7 @@ case "41"://trigger
 	echo "</select></td></tr><tr><td>Event</td><td><select name='utg3'>";
 	$evm=['INSERT','UPDATE','DELETE'];
 	foreach($evm as $evn) echo "<option value='$evn'".($r_tge[3]==$evn?" selected":"").">$evn</option>";
-	echo "</select></td></tr><tr><td>Definition</td><td><textarea name='utg5'>".$r_tge[5]."</textarea></td></tr><tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
+	echo "</select></td></tr><tr><td>Definition</td><td><textarea name='utg5'>{$r_tge[5]}</textarea></td></tr><tr><td colspan='2'><button type='submit'>Save</button></td></tr></table></form>";
 break;
 
 case "49"://drop view,trigger
@@ -1827,7 +1829,7 @@ case "50"://login
 	}
 	session_unset();
 	session_destroy();
-	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3><div>Password<br/><input type='password' id='pwd' name='password' /></div><div><button type='submit'>Login</button></div></div></form>";
+	echo $head.$ed->menu('','',2).$ed->form("50")."<div class='dw'><h3>LOGIN</h3><div>Password<br/><input type='password' id='pwd' name='password'/></div><div><button type='submit'>Login</button></div></div></form>";
 break;
 
 case "51"://logout
