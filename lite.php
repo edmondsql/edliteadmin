@@ -5,7 +5,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.24";
+$version="3.25";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 class DBT {
@@ -406,10 +406,12 @@ class ED {
 		}
 		foreach($tabs as $tb){
 			$q_st=$dbx->query("SELECT name,type FROM sqlite_master WHERE name='$tb'")->fetch(2);
+			if(!empty($q_st[0])){
 			if($q_st[0]['name']==$tb && $q_st[0]['type']=='view'){
 			array_push($vws,$tb);
 			} elseif($q_st[0]['name']==$tb && $q_st[0]['type']=='table'){
 			array_push($tbs,$tb);
+			}
 			}
 		}
 		$dbx=NULL;
@@ -1421,8 +1423,9 @@ case "32"://export
 					$ro="INSERT INTO $tb VALUES(";
 					$i=0;
 					while($i < $nr){
-					if(is_numeric($row[$i])) $ro.=$row[$i].",";
-					else $ro.="'".preg_replace(["/\r\n|\r|\n/","/'/"],["\\n","''"],$row[$i])."',";
+					$r=$row[$i]?$row[$i]:'';
+					if(is_numeric($r)) $ro.=$r.",";
+					else $ro.="'".preg_replace(["/\r\n|\r|\n/","/'/"],["\\n","''"],$r)."',";
 					++$i;
 					}
 					$val.=substr($ro,0,-1).");\n";
@@ -1569,7 +1572,10 @@ case "32"://export
 			$q_xl2=$ed->con->query("SELECT * FROM $tb")->fetch(1);
 			foreach($q_xl2 as $r_xl2){
 			$xh.='<Row>';
-			foreach($r_xl2 as $r_x2) $xh.='<Cell><Data ss:Type="'.(is_numeric($r_x2)?'Number':'String').'">'.htmlentities($r_x2).'</Data></Cell>';
+			foreach($r_xl2 as $r_x2) {
+			$r=$r_x2 ? $r_x2:'';
+			$xh.='<Cell><Data ss:Type="'.(is_numeric($r)?'Number':'String').'">'.htmlentities($r).'</Data></Cell>';
+			}
 			$xh.='</Row>';
 			}
 			$sq.=$xh.'</Table></Worksheet>';
@@ -1606,7 +1612,8 @@ case "32"://export
 			$sq2.="\n\t\t<table name=\"$tb\">";
 			$x=0;
 			foreach($r_xm2 as $r_x2){
-			$sq2.="\n\t\t\t<column name=\"".$q_xm1[$x][1]."\">".addslashes(htmlspecialchars($r_x2))."</column>";
+			$r=$r_x2 ? $r_x2:'';
+			$sq2.="\n\t\t\t<column name=\"".$q_xm1[$x][1]."\">".addslashes(htmlspecialchars($r))."</column>";
 			++$x;
 			}
 			$sq2.="\n\t\t</table>";
@@ -1713,7 +1720,7 @@ case "33"://blob download
 	$len=strlen($r_ph);
 	$tp='application/octet-stream';$xt='bin';
 	if($len>3){
-	if(substr($r_ph,0,3)=="\xFF\xD8\xFF"){$tp='image/jpg';$xt='jpg';}
+	if(substr($r_ph,0,3)=="\xFF\xD8\xFF"){$tp='image/jpeg';$xt='jpg';}
 	elseif(substr($r_ph,0,3)=="GIF"){$tp='image/gif';$xt='gif';}
 	elseif(substr($r_ph,0,4)=="\x89PNG"){$tp='image/png';$xt='png';}
 	elseif(substr($r_ph,0,4)=="RIFF"){$tp='image/webp';$xt='webp';}
