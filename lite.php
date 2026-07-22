@@ -5,7 +5,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.25";
+$version="3.26";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 class DBT {
@@ -24,7 +24,7 @@ class DBT {
 		else $this->_cnx=new PDO("sqlite:".$db);
 	}
 	public function exec($sql){
-		return $this->_cnx->exec($sql);
+		return $this->_cnx->exec((string)$sql);
 	}
 	public function query($sql,$single=false){
 		try{
@@ -230,7 +230,7 @@ class ED {
 		foreach($q_ts as $r_ts){
 		if($qtype !=$r_ts[1]){
 		if($qtype !='') $sl2.='</optgroup>';
-		$sl2.='<optgroup label="'.$r_ts[1].'s">';
+		$sl2.="<optgroup label='{$r_ts[1]}s'>";
 		}
 		if($r_ts[1]=='view'){
 		$in=[20,40];
@@ -240,7 +240,8 @@ class ED {
 		$nr=true;
 		}
 		if($nr!=false){
-		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/".$r_ts[0]."/".$r_ts[1]:(in_array($this->sg[0],$in)?$this->sg[0]:20)."/$db/".$r_ts[0])."'".($r_ts[0]==$tb || ($c_sp >1 && $r_ts[0]==$sp[1])?" selected":"").">".$r_ts[0]."</option>";
+		$rs=$r_ts[0];
+		$sl2.="<option value='".$this->path.($r_ts[1]=='trigger'?"41/$db/$rs/".$r_ts[1]:(in_array($this->sg[0],$in)?$this->sg[0]:20)."/$db/".$rs)."'".($rs==$tb || ($c_sp >1 && $rs==$sp[1])?" selected":"").">$rs</option>";
 		$qtype=$r_ts[1];
 		}
 		}
@@ -483,7 +484,7 @@ case ""://show DBs
 	$ed->check();
 	echo $head.$ed->menu()."<div class='col1'>".$ed->form(2)."<input type='text' name='dbc' placeholder='Database'/><br/><button type='submit'>Create</button></form></div><div class='col2'><table><tr><th>Database</th><th>Tables</th><th><a href='{$ed->path}31'>Exp</a>/ Actions</th></tr>";
 	foreach($ed->listdb() as $db){
-		$bg=($bg==1)?2:1;
+		$bg=($bg%2)+1;
 		$dbx=new DBT($ed->dir.$db.$ed->ext);
 		$qs_nr=$dbx->query("SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table','view')",true)->fetch();
 		echo "<tr class='r c$bg'><td>$db</td><td>$qs_nr</td><td><a href='{$ed->path}31/$db'>Exp</a><a class='del' href='{$ed->path}4/$db'>Drop</a><a href='{$ed->path}5/$db'>Browse</a></td></tr>";
@@ -544,7 +545,7 @@ case "5"://show tables
 		if(!in_array($r_tabs[0],$deny)){
 		$nr=@$ed->con->query("SELECT COUNT(*) FROM ".$r_tabs[0],true)->fetch();
 		$q_num=($r_tabs[1]=="view" ? $r_tabs[1] : $nr);
-		$bg=($bg==1)?2:1;
+		$bg=($bg%2)+1;
 		$vl="/$db/".$r_tabs[0];
 		if($r_tabs[1]=="view"){
 		$lk="40{$vl}/view"; $vdel="49{$vl}/view";
@@ -559,7 +560,7 @@ case "5"://show tables
 	$t=0;
 	$trg_tab="<table><tr><th>Trigger</th><th>Table</th><th>Actions</th></tr>";
 	foreach($q_tri as $r_tri){
-	$bg=($bg==1)?2:1;
+	$bg=($bg%2)+1;
 	$trg_tab.="<tr class='r c$bg'><td>{$r_tri[0]}</td><td>{$r_tri[1]}</td><td><a href='{$ed->path}41/$db/{$r_tri[0]}/trigger'>Edit</a><a class='del' href='{$ed->path}49/$db/{$r_tri[0]}/trigger'>Drop</a></td></tr>";
 	++$t;
 	}
@@ -587,8 +588,7 @@ case "6"://create table
 		$q2="CREATE TABLE ".$ed->sanitize($ed->post('ctab'))."(".substr($q1,0,-1).");";
 		echo "<p>".(strlen($q1) > 5 && $ed->con->query($q2) ? "<b>OK!</b> $q2<br/>":"<b>FAILED!</b> $q2")."</p>";
 		} else {
-		echo $ed->form("6/$db")."<input type='hidden' name='ctab' value='".$ed->post('ctab')."'/>
-		<input type='hidden' name='nrf' value='".$ed->post('nrf')."'/>$stru";
+		echo $ed->form("6/$db")."<input type='hidden' name='ctab' value='".$ed->post('ctab')."'/><input type='hidden' name='nrf' value='".$ed->post('nrf')."'/>$stru";
 		$nr=$ed->post('nrf');
 		$i=0;
 		while($i<$nr){
@@ -621,7 +621,9 @@ case "9":
 	}
 	if($ed->post('rtab','!e')){//rename table
 		$new=$ed->sanitize($ed->post('rtab'));
+		$ed->con->exec("PRAGMA legacy_alter_table=on");
 		$ren_tb=$ed->con->exec("ALTER TABLE $tb RENAME TO $new");
+		$ed->con->exec("PRAGMA legacy_alter_table=off");
 		if($ren_tb===false) $ed->redir("10/$db/$tb",['err'=>"Can't rename"]);
 		$ed->redir("5/$db",['ok'=>"Successfully renamed"]);
 	}
@@ -675,10 +677,12 @@ case "9":
 			$fk.="FOREIGN KEY ({$r_fk['from']}) REFERENCES {$r_fk['table']} ({$r_fk['to']})".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
 			}
 			$ed->con->exec("BEGIN TRANSACTION");
+			$ed->con->exec("PRAGMA legacy_alter_table=on");
 			$ed->con->exec("CREATE TABLE temp_$tb ($r_sql$fk PRIMARY KEY($idx))");
 			$ed->con->exec("INSERT INTO temp_$tb SELECT $f FROM $tb");
 			$ed->con->exec("DROP TABLE $tb");
 			$ed->con->exec("ALTER TABLE temp_$tb RENAME TO $tb");
+			$ed->con->exec("PRAGMA legacy_alter_table=off");
 			foreach($sqs as $sq) $ed->con->exec($sq[0]);
 			$ed->con->exec("COMMIT");
 		} elseif($ed->post('unique','i')){
@@ -707,29 +711,29 @@ case "10"://structure
 	echo $head.$ed->menu($db,$tb,1).$ed->form("9/$db/$tb")."<table><caption>Structure</caption><thead><tr><th><input type='checkbox' onclick='toggle(this,\"idx[]\")'/></th><th>Field</th><th>Type</th><th>Null</th><th>Default</th><th>PK</th><th>Actions</th></tr></thead><tbody class='sort'>";
 	$q_rec=$ed->con->query("PRAGMA table_info($tb)")->fetch(1);
 	foreach($q_rec as $rec){
-		$bg=($bg==1)?2:1;
+		$bg=($bg%2)+1;
 		echo "<tr class='r c$bg' id='{$rec[1]}'><td><input type='checkbox' name='idx[]' value='{$rec[1]}'/></td><td>{$rec[1]}</td><td>{$rec[2]}</td><td>".($rec[3]==0 ? 'Yes':'No')."</td><td>{$rec[4]}</td><td>".($rec[5]>0 ? 'PK':'')."</td><td><a href='{$ed->path}12/$db/$tb/{$rec[1]}'>change</a><a class='del' href='{$ed->path}13/$db/$tb/{$rec[1]}'>drop</a><a href='{$ed->path}11/$db/$tb'>add</a><span draggable='true' class='handle' title='move'>&#x21F5;</span></td></tr>";
 	}
 	echo "</tbody><tfoot><tr><td class='auto' colspan='7'><div class='left'><button type='submit' name='primary'>Primary</button><button type='submit' name='index'>Index</button><button type='submit' name='unique'>Unique</button></div><div class='right link'><a href='{$ed->path}27/$db/$tb/analyze'>Analyze</a></div></td></tr></tfoot></table></form>";
 	$q_idx=$ed->con->query("PRAGMA index_list($tb)")->fetch(1);
 	echo "<table><caption>Index</caption><tr><th>Name</th><th>Field</th><th>Unique</th><th>Actions</th></tr>";
 	foreach($q_idx as $rc){
-		$bg=($bg==1)?2:1;
-		echo "<tr class='r c$bg'><td>".$rc[1]."</td><td>";
-		$q=$ed->con->query("PRAGMA index_info('".$rc[1]."')")->fetch(1);
+		$bg=($bg%2)+1;
+		echo "<tr class='r c$bg'><td>{$rc[1]}</td><td>";
+		$q=$ed->con->query("PRAGMA index_info('{$rc[1]}')")->fetch(1);
 		foreach($q as $rd) echo $rd[2]."<br/>";
 		echo "</td><td>".($rc[2]==1 ? 'YES':'NO')."</td><td><a class='del' href='{$ed->path}9/$db/$tb/".base64_encode($rc[1])."'>drop</a></td></tr>";
 	}
 	$q_chk=$ed->con->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='$tb'",true)->fetch();
 	preg_match_all('/\bCHECK\s*\((.+)\)/i',$q_chk,$match);
 	foreach($match[1] as $r_ch){
-		$bg=($bg==1)?2:1;
+		$bg=($bg%2)+1;
 		echo "<tr class='r c$bg'><td>CHECK</td><td colspan='3'>$r_ch</td></tr>";
 	}
 	$q_fkl=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
 	echo "</table><table><caption>Foreign Keys</caption><tr><th>Field</th><th>Target</th><th>On delete</th><th>On update</th><th>Actions <a href='{$ed->path}14/$db/$tb'>add</a></th></tr>";
 	foreach($q_fkl as $r_fkl){
-		$bg=($bg==1)?2:1;
+		$bg=($bg%2)+1;
 		echo "<tr class='r c$bg'><td>{$r_fkl['from']}</td><td>{$r_fkl['table']}.{$r_fkl['to']}</td><td>{$r_fkl['on_delete']}</td><td>{$r_fkl['on_update']}</td><td><a href='{$ed->path}14/$db/$tb/{$r_fkl['id']}'>change</a><a class='del' href='{$ed->path}14/$db/$tb/{$r_fkl['id']}/fk'>drop</a></td></tr>";
 	}
 	echo "</table><table class='c1'><tr><td>Rename Table<br/>".$ed->form("9/$db/$tb")."<input type='text' name='rtab'/><br/><button type='submit'>Rename</button></form><br/>Copy Table<br/>".$ed->form("9/$db/$tb")."<select name='copytab'>";
@@ -765,7 +769,7 @@ case "12"://change field
 		$q_fk=$ed->con->query("PRAGMA foreign_key_list($tb)")->fetch(2);
 		foreach($q_fk as $r_fk){
 		$fkr=$r_fk['from']==$fn1 ? $fn2:$r_fk['from'];
-		$fk.="FOREIGN KEY ($fkr) REFERENCES ".$r_fk['table']." (".$r_fk['to'].")".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
+		$fk.="FOREIGN KEY ($fkr) REFERENCES {$r_fk['table']} ({$r_fk['to']})".(empty($r_fk['on_delete'])?"":" ON DELETE ".$r_fk['on_delete']).(empty($r_fk['on_update'])?"":" ON UPDATE ".$r_fk['on_update']).",";
 		}
 		foreach($q_t as $e){
 		if($e[1]==$fn1){
@@ -784,7 +788,7 @@ case "12"://change field
 		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
 		foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
 		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
-		foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
+		foreach($q_it as $r_it) $ed->con->exec("DROP {$r_it[0]} ".$r_it[1]);
 		$ed->con->exec("CREATE TABLE temp_$tb (".substr($qr,0,-1).")");
 		$ed->con->exec("INSERT INTO temp_$tb($pe$fn2) SELECT $pe$fn1 FROM $tb");
 		$ed->con->exec("DROP TABLE $tb");
@@ -879,7 +883,7 @@ case "14"://fk
 		$q_iv=$ed->con->query("SELECT name,sql FROM sqlite_master WHERE type='view'")->fetch(1);
 		foreach($q_iv as $r_it) $ed->con->exec("DROP view ".$r_it[0]);
 		$q_it=$ed->con->query("SELECT type,name,sql FROM sqlite_master WHERE tbl_name='$tb' AND type IN ('index','trigger')")->fetch(1);
-		foreach($q_it as $r_it) $ed->con->exec("DROP ".$r_it[0]." ".$r_it[1]);
+		foreach($q_it as $r_it) $ed->con->exec("DROP {$r_it[0]} ".$r_it[1]);
 		$ed->con->exec("CREATE TABLE temp_$tb(".substr($qr,0,-1).")");
 		$ed->con->exec("INSERT INTO temp_$tb SELECT ".substr($re,0,-1)." FROM $tb");
 		$ed->con->exec("DROP TABLE $tb");
@@ -945,7 +949,7 @@ case "20"://table browse
 	if($r_col){
 	$key=array_keys($r_col[0]);
 	foreach($r_col as $row){
-		$bg=($bg==1)?2:1;
+		$bg=($bg%2)+1;
 		echo "<tr class='r c$bg'>";
 		if($q_vws !='view'){
 		$nu=$key[0]."/".($row[$key[0]]=="" && !is_numeric($row[$key[0]])?"isnull":base64_encode($row[$key[0]])).(!empty($key[1]) && !empty($rinf[$key[1]]) && (stristr($rinf[$key[1]],"int") || stristr($rinf[$key[1]],"varchar")) && stristr($rinf[$key[1]],"blob")==false && !empty($row[$key[1]]) ? "/".$key[1]."/".base64_encode($row[$key[1]]):"");
@@ -955,7 +959,7 @@ case "20"://table browse
 		while($j<$cols){
 		$val=($row[$key[$j]]==''?'':htmlentities($row[$key[$j]]));
 		echo "<td>";
-		if(stristr($rinf[$key[$j]],"blob")==true ){
+		if(stristr($rinf[$key[$j]],"blob")==true){
 		$s=$row[$key[$j]]?$row[$key[$j]]:'';
 		$le=strlen($s);
 		echo "blob: ".($le>4 ? "<a href='{$ed->path}33/$db/$tb/$nu/{$key[$j]}'>".number_format(($le/1024),2)." KB</a>":"0.00 KB");
@@ -1120,9 +1124,9 @@ case "24"://search
 		$sl2=(!empty($sl[1])?$sl[1]:$sl[0]);
 		$search_cond[]=$fd." {$cd} '{$sl[0]}' AND '{$sl2}'";
 		}
-		elseif(in_array($cd,$cond3)) $search_cond[]=$fd." ".$cd." ('".$po."')";
+		elseif(in_array($cd,$cond3)) $search_cond[]=$fd." $cd ('$po')";
 		elseif(in_array($cd,$cond4)) $search_cond[]=$fd." ".$cd;
-		else $search_cond[]=$fd." ".html_entity_decode($ed->post('cond__'.$fd))." '".$po."'";
+		else $search_cond[]=$fd." ".html_entity_decode($ed->post('cond__'.$fd))." '$po'";
 		}
 	}
 	$se_str=($search_cond?"WHERE ":"").implode(" AND ",$search_cond).($ed->post('order_field','!e')?" ORDER BY ".$ed->post('order_field')." ".$ed->post('order_ord')." ":"");
@@ -1136,7 +1140,7 @@ case "24"://search
 	foreach($q_se as $r_se){
 	$fl=$r_se['name'];
 	$fields.="<option value='$fl'>$fl</option>";
-	echo "<tr><td>$fl</td><td><select name='cond__".$fl."'>$conds</select></td><td><input type='text' name='$fl'/></td></tr>";
+	echo "<tr><td>$fl</td><td><select name='cond__{$fl}'>$conds</select></td><td><input type='text' name='$fl'/></td></tr>";
 	}
 	echo "<tr class='c1'><td>Order</td><td><select name='order_field'>$fields</select></td><td><select name='order_ord'><option value='ASC'>ASC</option><option value='DESC'>DESC</option></select></td></tr><tr><td colspan='3'><button type='submit' name='search'>Search</button></td></tr></table></form>";
 break;
@@ -1193,7 +1197,7 @@ case "30"://import
 			foreach($q_sel[0] as $k=>$r_sel) echo "<th>$k</th>";
 			echo "</tr>";
 			foreach($q_sel as $r_sel){
-			$bg=($bg==1)?2:1;
+			$bg=($bg%2)+1;
 			echo "<tr class='r c$bg'>";
 			foreach($r_sel as $r_se) echo "<td>$r_se</td>";
 			echo "</tr>";
@@ -1861,7 +1865,7 @@ case "60"://info
 	}
 	$q_var=['Extension'=>$lty,'SQLite'=>$vv,'Php'=>PHP_VERSION,'Software'=>$_SERVER['SERVER_SOFTWARE']];
 	foreach($q_var as $r_k=>$r_var){
-	$bg=($bg==1)?2:1;
+	$bg=($bg%2)+1;
 	echo "<tr class='r c$bg'><td>$r_k</td><td>$r_var</td></tr>";
 	}
 	echo "</table>";
@@ -1941,7 +1945,7 @@ var xhr=new window.XMLHttpRequest();
 xhr.open("POST","<?=$ed->path.'9/'.(empty($ed->sg[1])?'':$ed->sg[1].'/').(empty($ed->sg[2])?'':$ed->sg[2])?>");
 xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
 xhr.onload=function(){
-(xhr.readyState == 4 && xhr.status == 200) ? location.reload():alert('Error: '+xhr.status);
+(xhr.readyState==4 && xhr.status==200) ? location.reload():alert('Error: '+xhr.status);
 }
 xhr.send("reord="+reord);
 }
