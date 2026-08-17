@@ -5,7 +5,7 @@ session_name('Lite');
 session_start();
 $bg=2;
 $step=20;
-$version="3.27";
+$version="3.28";
 $bbs=['False','True'];
 $deny=['sqlite_sequence'];
 class DBT {
@@ -1186,7 +1186,7 @@ case "30"://import
 	$out="";
 	@set_time_limit(7200);
 	$e='';
-	$rgex="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|(\#|--).*|(\/\*).*(\*\/;*)|\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
+	$rgex="~^\xEF\xBB\xBF|^\xFE\xFF|^\xFF\xFE|\s*(\#|--).*|\s*(\/\*)[\s\S]*?(\*\/*)|\(([^)]*\)*(\"*.*\")*('*.*'))(*SKIP)(*F)|(?is)(BEGIN.*?END)(*SKIP)(*F)|(?<=;)(?![ ]*$)~";
 	if($ed->post('qtxt','!e')){//run text
 		$qtxt=$ed->post('qtxt');
 		if(preg_match('/^\b(select)\b/is',$qtxt)){//run select
